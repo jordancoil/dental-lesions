@@ -2,6 +2,7 @@ import pandas as pd
 import re
 import os
 import shutil
+from PIL import Image
 
 # data is stored within the filenames of the images
 # the structure is as follows:
@@ -20,15 +21,11 @@ import shutil
 class ImageProcessor:
 
     def __init__(self, test_run):
-        self.fileindex = 1
-        self.dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.dst_dir= os.path.join(self.dir_path, 'lesion-images-with-id')
+        self.dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lesion_images')
+        self.dst_dir= os.path.join(self.dir_path, 'all_images_processed')
         print("Image destination directory: " + self.dst_dir)
-        self.lesion_image_path = os.path.join(self.dir_path, 'lesion-images')
-        self.no_lesion_image_path = os.path.join(self.dir_path, 'no-lesion-images')
-        self.lesion_filenames = os.listdir(self.lesion_image_path)
-        self.no_lesion_filenames = os.listdir(self.no_lesion_image_path)
-        self.filenames = self.lesion_filenames + self.no_lesion_filenames
+        self.all_images_path = os.path.join(self.dir_path, 'all_images_cropped_src')
+        self.filenames = os.listdir(self.all_images_path)
 
         self.data = {
             'imageId': [], # We also should copy the images to image ids, and encode that as well
@@ -42,42 +39,18 @@ class ImageProcessor:
 
         self.test_run = test_run
 
-    def copy_lesion_image(self, old_filename, image_id, is_lesion):
-        new_filename = os.path.join(self.dst_dir, image_id)
-        if not os.path.isfile(new_filename):
-            if is_lesion:
-                src_dir = self.lesion_image_path
-            else:
-                src_dir = self.no_lesion_image_path
-            src_file = os.path.join(src_dir, old_filename) 
-            if not self.test_run:
-                copy_filename = os.path.join(self.dst_dir, old_filename)
-                print("Copying " + src_file)
-                print("to: " + copy_filename)
-                shutil.copy(src_file, copy_filename)
-                dst_file = os.path.join(self.dst_dir, old_filename)
-                os.rename(dst_file, image_id)
-
-    def process_lesion_images(self):
-        for filename in self.lesion_filenames:
-            self.process_image(filename, True)
-
-    def process_no_lesion_images(self):
-        for filename in self.no_lesion_filenames:
-            self.process_image(filename, False)
-
     def process_all_images(self):
-        self.process_lesion_images()
-        self.process_no_lesion_images()
+        for filename in self.filenames:
+            self.process_image(filename)
 
-    def process_image(self, filename, hasLesion):
+    def process_image(self, filename):
         print("Processing: " + filename)
 
         # First split into list by comma
         # [lname, fname, teethnum, desc1, ..., descn, canalnum, month, day, year, sequencenum]
         params = filename.split(',')
 
-        if re.search("JPG", params[-1]) and len(params) >= 6:
+        if re.search("jpg", params[-1]) and len(params) >= 6:
             # We only want to process our images, not files lie .DS_STORE for eg.
             # There are some images with not all the data, so ignore anything less tha 6 params
 
@@ -86,17 +59,22 @@ class ImageProcessor:
             params = params[2:]
             print('Current Params: ' + str(params))
 
-            self.data['teethNumbers'].append(params[0])
-            params = params[1:]
-
-            # Last value should always be sequence number
+            # Extract ID and and lesion binary from last param
+            params[-1] = params[-1].split('.jpg')[0] # Remove ".jpg" from the last param
+            last_param = params[-1].split('-')
+            image_id = last_param[1] # Extract Image Id
+            lesion = int(last_param[2]) # Extract lesion binary value
+            
+            # Extract sequence number
             # Save and drop from list
             # [teethnum, desc1, ..., descn, canalnum, month, day, year]
-            sequenceNum = params[-1].split('.JPG')[0]
+            sequenceNum = last_param[0]
             print('Sequence Number: ' + sequenceNum)
-            self.data['sequenceNumber'].append(sequenceNum)
             params = params[:-1]
-        
+
+            teethNumbers = params[0]
+            params = params[1:]
+
             # Extract date
             date = params[-3:]
             print("Date: "+ str(date))
@@ -108,7 +86,6 @@ class ImageProcessor:
             #               year      month     day
             formattedDate = date[2] + date[0] + date[1]
             print("formatted date: " + formattedDate)
-            self.data['date'].append(pd.to_datetime(formattedDate, format='%Y%m%d'))
             params = params[:-3]
 
             # Use regex to determine if Number of Canals var is present
@@ -125,27 +102,36 @@ class ImageProcessor:
                 else:
                     new_params.append(param)
 
-            self.data['numberOfCanals'].append(canal_to_add)
             params = new_params
 
-            # If there are any values left, they will be considered part of the description.
-            # We can join them all into a string
-            if len(params):
-                self.data['description'].append(",".join(params))
-            else:
-                self.data['description'].append("")
+            img = Image.open(os.path.join(self.all_images_path, filename))
+            rotated = [img, img.rotate(90), img.rotate(180), img.rotate(270)]
+            for index, image_to_save in enumerate(rotated):
+                new_file_id = image_id + "-" + str(index)
+                new_filename = new_file_id + ".jpg"
 
-            self.data['lesion'].append(1 if hasLesion else 0)
+                self.data['imageId'].append(new_file_id)
+                self.data['sequenceNumber'].append(sequenceNum)
+                self.data['teethNumbers'].append(teethNumbers)
+                self.data['date'].append(pd.to_datetime(formattedDate, format='%Y%m%d'))
+                self.data['numberOfCanals'].append(canal_to_add)
+                # If there are any values left, they will be considered part of the description.
+                # We can join them all into a string
+                if len(params):
+                    self.data['description'].append(",".join(params))
+                else:
+                    self.data['description'].append("")
 
-            lesion_text = "lesion" if hasLesion == True else "nolesion"
-            lesion_id = str(self.fileindex) + "-" + lesion_text + ".JPG"
-            self.data['imageId'].append(lesion_id)
+                self.data['lesion'].append(lesion)
 
-            print("saving lesion image: " + filename)
-            print("as: " + lesion_id)
-            print("---")
-            self.copy_lesion_image(filename, lesion_id, hasLesion)
-            self.fileindex += 1
+                new_file_path = os.path.join(self.dst_dir, new_filename)
+
+                print("saving lesion image: " + filename)
+                print("as: " + new_filename)
+                print("---")
+
+                image_to_save.save(new_file_path, 'JPEG')
+
 
 image_processor = ImageProcessor(test_run=False)
 image_processor.process_all_images()

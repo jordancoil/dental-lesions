@@ -1,6 +1,4 @@
-lesion-images/*
-lesion-images-with-id/*
-no-lesion-images/*
+lesion_images/*
 lesionFileNotes.txt
 *.DS_Store
 *.swp
