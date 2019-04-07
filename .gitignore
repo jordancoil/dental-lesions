@@ -2,3 +2,9 @@ lesion_images/*
 lesionFileNotes.txt
 *.DS_Store
 *.swp
+*.h5
+.ipynb_checkpoints
+**/*.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*/.ipynb_checkpoints/*.ipynb
+
