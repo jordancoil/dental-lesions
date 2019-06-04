@@ -8,7 +8,7 @@ from lesion_dataset import LesionDataset
 
 print("Loading sample image from PyTorch dataset...")
 print("Reading csv...")
-df = pd.read_csv("./train.csv")
+df = pd.read_csv("./data_csvs/train.csv")
 df = df.drop(["Unnamed: 0", "Unnamed: 0.1", "teethNumbers", "description", "numberOfCanals", "date", "sequenceNumber"], axis=1)
 print("csv read!")
 
