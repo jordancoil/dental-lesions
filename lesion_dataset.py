@@ -26,29 +26,21 @@ class LesionDataset(Dataset):
         return len(self.lesions_df)
 
     def __getitem__(self, idx):
-        print(" - getting image")
         image_id = self.lesions_df.iloc[idx].imageId
         image = io.imread(self.root_dir + image_id + '.jpg')
         
-        print(" - image got")
-
-        # Transforms like resizign should be performed before 
+        # Transforms like resizing should be performed before 
         # importing images into the dataset
 
-        print(" - transforming image for pytorch")
         image = image.transpose((2, 0, 1))
         image = torch.from_numpy(image)
-        print(" - done")
-        print(" - normalizing")
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-        #image = normalize(image.float())
-        print(" - done")
 
-        print(" - loading label")
+        # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        #                                  std=[0.229, 0.224, 0.225])
+        # image = normalize(image.float())
+
         label = self.lesions_df.iloc[idx].lesion
         label = label.astype('float')
         label = torch.from_numpy(np.array([label]))
-        print(" - done")
 
         return image, label
