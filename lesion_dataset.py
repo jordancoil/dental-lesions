@@ -32,8 +32,15 @@ class LesionDataset(Dataset):
         # Transforms like resizing should be performed before 
         # importing images into the dataset
 
-        image = image.transpose((2, 0, 1))
-        image = torch.from_numpy(image)
+        # RGB transpose
+        # image = image.transpose((2, 0, 1))
+
+        # Greyscale reshape
+        image = image.reshape((1, image.shape[0], image.shape[1]))
+
+        to_tensor = transforms.ToTensor()
+        image = to_tensor(image)
+        # image = torch.from_numpy(image)
 
         # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
         #                                  std=[0.229, 0.224, 0.225])

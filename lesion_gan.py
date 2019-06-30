@@ -5,11 +5,19 @@ from torchvision import transforms, datasets
 
 from utils import Logger
 
+from lesion_dataset import LesionDataset
+
 import sys, argparse
+import pandas as pd
 
 def main(argv):
     x_file = options.xfile
     # TODO: use x_file to run a GAN on lesion images
+
+
+def lesion_data():
+    df = pd.read_csv("./data_csvs/train_only_ids.csv")
+    return LesionDataset(df, "./lesion_images/all_images_processed_3/")
 
 def mnist_data():
     compose = transforms.Compose(
@@ -34,9 +42,11 @@ class DiscriminatorNet(nn.Module):
         - A Sigmoid function is applied to the output 
         to obtain a value in the range(0, 1)
     """
-    def __init__(self):
+    def __init__(self, image_vector_size):
         super(DiscriminatorNet, self).__init__()
-        n_features = 784 # eg. 28x28 = 784 (image size)
+
+        # eg. 28x28 = 784 (image vector size)
+        n_features = image_vector_size         
         n_out = 1
 
         self.hidden_0 = nn.Sequential(
@@ -84,10 +94,10 @@ class GeneratorNet(nn.Module):
         map resulting values into (-1, 1) range (same
         range as MNIST)
     """
-    def __init__(self):
+    def __init__(self, image_vector_size):
         super(GeneratorNet, self).__init__()
         n_features = 100
-        n_out = 784 # eg. 28x28 = 784 (image size)
+        n_out = image_vector_size # eg. 28x28 = 784 (image size)
 
         self.hidden_0 = nn.Sequential(
             nn.Linear(n_features, 256),
@@ -116,14 +126,14 @@ class GeneratorNet(nn.Module):
         x = self.out(x)
         return x
 
-def images_to_vectors(images):
+def images_to_vectors(images, target_size):
     # helper function to flatten images
-    return images.view(images.size(0), 784)
+    return images.view(images.size(0), target_size)
 
-def vectors_to_images(vectors):
+def vectors_to_images(vectors, target_size):
     # helper function to unflatten images
     # output: greyscale 28x28 images
-    return vectors.view(vectors.size(0), 1, 28, 28)
+    return vectors.view(vectors.size(0), 1, target_size[0], target_size[1])
 
 def noise(size):
     """
@@ -200,15 +210,17 @@ if __name__ == "__main__":
     parser.add_argument('--test', dest='feature', action='store_true')
     options = parser.parse_args()
 
-    # --- GAN Tutorial Code ---
-    data = mnist_data() # Load Data
+    # Load Data
+    data = lesion_data()
+    image_size = (224, 224)
+    vector_size = image_size[0] * image_size[1]
 
     # Create loader to iterate over data
-    data_loader = torch.utils.data.DataLoader(data, batch_size=100, shuffle=True)    
+    data_loader = torch.utils.data.DataLoader(data, batch_size=16, shuffle=True)    
     num_batches = len(data_loader)
 
-    discriminator = DiscriminatorNet()
-    generator = GeneratorNet()
+    discriminator = DiscriminatorNet(vector_size)
+    generator = GeneratorNet(vector_size)
 
     d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002)
     g_optimizer = optim.Adam(generator.parameters(), lr=0.0002)
@@ -230,7 +242,7 @@ if __name__ == "__main__":
     # START training code
     
     # Create logger instance
-    logger = Logger(model_name='VGAN', data_name='MNIST')
+    logger = Logger(model_name='VGAN', data_name='LESION')
 
     num_epochs = 200
 
@@ -239,7 +251,7 @@ if __name__ == "__main__":
             N = real_batch.size(0)
 
             # 1. Train Discriminator
-            real_data = Variable(images_to_vectors(real_batch))
+            real_data = Variable(images_to_vectors(real_batch, vector_size))
 
             # Generate fake data and detach
             # (so gradients are not calculated for generator)
@@ -261,8 +273,8 @@ if __name__ == "__main__":
             logger.log(d_error, g_error, epoch, n_batch, num_batches)
 
             # 4. Display Progress periodically
-            if (n_batch) % 100 == 0:
-                test_images = vectors_to_images(generator(test_noise))
+            if (n_batch) % 10 == 0:
+                test_images = vectors_to_images(generator(test_noise), image_size)
                 test_images = test_images.data
 
                 logger.log_images(
