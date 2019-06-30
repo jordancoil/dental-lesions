@@ -16,8 +16,9 @@ def main(argv):
 
 
 def lesion_data():
-    df = pd.read_csv("./data_csvs/train_only_ids.csv")
-    return LesionDataset(df, "./lesion_images/all_images_processed_3/")
+    # df = pd.read_csv("./data_csvs/train_only_ids.csv")
+    df = pd.read_csv("./data_csvs/zeros_and_lesions_only.csv")
+    return LesionDataset(df, "./lesion_images/processed_3_zeros_only/type1/upwards/")
 
 def mnist_data():
     compose = transforms.Compose(
