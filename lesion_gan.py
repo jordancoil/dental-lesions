@@ -43,12 +43,45 @@ class DiscriminatorNet(nn.Module):
         - A Sigmoid function is applied to the output 
         to obtain a value in the range(0, 1)
     """
-    def __init__(self, image_vector_size):
+    def __init__(self, image__size, num_channels):
         super(DiscriminatorNet, self).__init__()
 
         # eg. 28x28 = 784 (image vector size)
-        n_features = image_vector_size         
+        n_features = image_size         
         n_out = 1
+        n_channels = num_channels
+
+        # input: (n_channels) x 64 x 64
+        self.layer_0 = nn.Sequential(
+            nn.Conv2d(n_channels, n_features, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        # state size: (n_features) x 32 x 32
+        self.layer_1 = nn.Sequential(
+            nn.Conv2d(n_features, n_features * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_features * 2),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        # state size: (n_featuers * 2) x 16 x 16
+        self.layer_2 = nn.Sequential(
+            nn.Conv2d(n_features * 2, n_features * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_features * 4),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        # state size: (n_featuers * 4) x 8 x 8
+        self.layer_3 = nn.Sequential(
+            nn.Conv2d(n_features * 4, n_features * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_features * 8),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.out = nn.Sequential(
+            nn.Conv2d(n_features * 8, n_out, 4, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
 
         self.hidden_0 = nn.Sequential(
             nn.Linear(n_features, 1024),
@@ -68,18 +101,18 @@ class DiscriminatorNet(nn.Module):
             nn.Dropout(0.3)
         )
 
-        self.out = nn.Sequential(
-            nn.Linear(256, n_out),
-            nn.Sigmoid()
-        )
+#        self.out = nn.Sequential(
+#            nn.Linear(256, n_out),
+#            nn.Sigmoid()
+#        )
 
     def forward(self, x):
-        x = self.hidden_0(x)
-        x = self.hidden_1(x)
-        x = self.hidden_2(x)
+        x = self.layer_0(x)
+        x = self.layer_1(x)
+        x = self.layer_2(x)
+        x = self.layer_3(x)
         x = self.out(x)
         return x
-
 
 class GeneratorNet(nn.Module):
     """
@@ -95,10 +128,45 @@ class GeneratorNet(nn.Module):
         map resulting values into (-1, 1) range (same
         range as MNIST)
     """
-    def __init__(self, image_vector_size):
+    def __init__(self, image_size, num_channels, latent_vector_size):
         super(GeneratorNet, self).__init__()
-        n_features = 100
-        n_out = image_vector_size # eg. 28x28 = 784 (image size)
+        n_features = latent_vector_size
+        n_out = image_size # eg. 28x28 = 784 (image size)
+        n_channels = num_channels
+
+        self.layer_0 = nn.Sequential(
+            nn.ConvTranspose2d(n_features, n_out * 8, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(n_out * 8),
+            nn.ReLU(True)
+        )
+        # state size. (n_out*8) x 4 x 4
+
+        self.layer_1 = nn.Sequential(
+            nn.ConvTranspose2d(n_out * 8, n_out * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_out * 4),
+            nn.ReLU(True)
+        )
+        # state size. (n_out*4) x 8 x 8
+
+        self.layer_2 = nn.Sequential(
+            nn.ConvTranspose2d(n_out * 4, n_out * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_out * 2),
+            nn.ReLU(True)
+        )
+        # state size. (n_out*2) x 16 x 16
+
+        self.layer_3 = nn.Sequential(
+            nn.ConvTranspose2d(n_out * 2, n_out, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_out),
+            nn.ReLU(True)
+        )
+        # state size. (n_out) x 32 x 32
+
+        self.out = nn.Sequential(
+            nn.ConvTranspose2d(n_out, n_channels, 4, 2, 1, bias=False),
+            nn.Tanh()
+        )
+        # state size. (n_channels) x 64 x 64
 
         self.hidden_0 = nn.Sequential(
             nn.Linear(n_features, 256),
@@ -115,17 +183,23 @@ class GeneratorNet(nn.Module):
             nn.LeakyReLU(0.2)
         )
 
-        self.out = nn.Sequential(
-            nn.Linear(1024, n_out),
-            nn.Tanh()
-        )
+#        self.out = nn.Sequential(
+#            nn.Linear(1024, n_out),
+#            nn.Tanh()
+#        )
 
     def forward(self, x):
-        x = self.hidden_0(x)
-        x = self.hidden_1(x)
-        x = self.hidden_2(x)
+#         x = self.hidden_0(x)
+#         x = self.hidden_1(x)
+#         x = self.hidden_2(x)
+        x = self.layer_0(x)
+        x = self.layer_1(x)
+        x = self.layer_2(x)
+        x = self.layer_3(x)
         x = self.out(x)
         return x
+
+
 
 def images_to_vectors(images, target_size):
     # helper function to flatten images
@@ -205,7 +279,7 @@ def train_generator(optimizer, fake_data):
     return error
 
 
-if __name__ == "__main__":	
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run Lesion GAN')
     parser.add_argument('--xfile', type=str, nargs='?')
     parser.add_argument('--test', dest='feature', action='store_true')
@@ -216,18 +290,28 @@ if __name__ == "__main__":
     image_size = (224, 224)
     vector_size = image_size[0] * image_size[1]
 
+    # DCGAN Variables
+    workers = 2
+    batch_size = 16
+    image_size = 64 # 64 x 64 x num_channels
+    num_channels = 1
+    latent_vector_size = 100
+    num_feature_maps = 64 # size of feature maps in D and G
+    beta1 = 0.5 # beta1 hyperparam for Adam optim.
+
     # Create loader to iterate over data
-    data_loader = torch.utils.data.DataLoader(data, batch_size=16, shuffle=True)    
+    data_loader = torch.utils.data.DataLoader(data, batch_size=batch_size, num_workers=workers, shuffle=True)
     num_batches = len(data_loader)
 
-    discriminator = DiscriminatorNet(vector_size)
-    generator = GeneratorNet(vector_size)
+    discriminator = DiscriminatorNet(image_size, num_channels)
+    #generator = GeneratorNet(vector_size)
+    generator = GeneratorNet(image_size, num_channels, latent_vector_size)
 
-    d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002)
-    g_optimizer = optim.Adam(generator.parameters(), lr=0.0002)
+    d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(beta1, 0.999))
+    g_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(beta1, 0.999))
 
     """
-    Binary Cross Entropy Loss is used because it resembles 
+    Binary Cross Entropy Loss is used because it resembles
     the log-loss for both Generator and Discriminator
     """
     loss = nn.BCELoss()
@@ -239,9 +323,10 @@ if __name__ == "__main__":
     """
     num_test_samples = 16
     test_noise = noise(num_test_samples)
+    fixed_noise = torch.randn(num_test_samples, latent_vector_size, 1, 1)
 
     # START training code
-    
+
     # Create logger instance
     logger = Logger(model_name='VGAN', data_name='LESION')
 
@@ -252,34 +337,38 @@ if __name__ == "__main__":
             N = real_batch.size(0)
 
             # 1. Train Discriminator
-            real_data = Variable(images_to_vectors(real_batch, vector_size))
+            #real_data = Variable(images_to_vectors(real_batch, vector_size))
+            real_data = real_batch
 
             # Generate fake data and detach
             # (so gradients are not calculated for generator)
-            fake_data = generator(noise(N)).detach()
+            gen_noise = torch.randn(N, 100, 1, 1)
+            fake_data = generator(gen_noise).detach()
+            #fake_data = generator(noise(N)).detach()
 
             # Train Discrimiator
             d_error, d_pred_real, d_pred_fake = \
                 train_discriminator(d_optimizer, real_data, fake_data)
 
-            
+
             # 2. Train Generator
-            fake_data = generator(noise(N))
+            #fake_data = generator(noise(N))
+            fake_data = generator(gen_noise)
 
             # Train Generator
             g_error = train_generator(g_optimizer, fake_data)
 
-            
+
             # 3. Log Batch Error
             logger.log(d_error, g_error, epoch, n_batch, num_batches)
 
             # 4. Display Progress periodically
             if (n_batch) % 10 == 0:
-                test_images = vectors_to_images(generator(test_noise), image_size)
+                test_images = generator(fixed_noise)
                 test_images = test_images.data
 
                 logger.log_images(
-                    test_images, num_test_samples, 
+                    test_images, num_test_samples,
                     epoch, n_batch, num_batches
                 )
 
@@ -292,6 +381,6 @@ if __name__ == "__main__":
     # END training code
 
     # --- End tutorial code ---
-    
+
     main(options)
 
