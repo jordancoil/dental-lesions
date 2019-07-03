@@ -36,7 +36,7 @@ class LesionDataset(Dataset):
         # image = image.transpose((2, 0, 1))
 
         # Greyscale reshape
-        image = image.reshape((1, image.shape[0], image.shape[1]))
+        image = image.reshape((image.shape[0], image.shape[1], 1))
 
         to_tensor = transforms.ToTensor()
         image = to_tensor(image)
