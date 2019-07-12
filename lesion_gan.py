@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from torchvision import transforms, datasets
 
 from utils import Logger
+import matplotlib.pyplot as plt
 
 from lesion_dataset import LesionDataset
 
@@ -225,31 +226,31 @@ def ones_target(size):
     """
     Tensor containing ones, with shape = size
     """
-    data = Variable(torch.ones(size, 1))
+    data = Variable(torch.ones(size, 1, 1, 1))
     return data
 
 def zeros_target(size):
     """
     Tensor containing zeros, with shape = size
     """
-    data = Variable(torch.zeros(size, 1))
+    data = Variable(torch.zeros(size, 1, 1, 1))
     return data
 
 
-def train_discriminator(optimizer, real_data, fake_data):
+def train_discriminator(Discriminator, optimizer, real_data, fake_data):
     N = real_data.size(0)
 
     # Reset gradients
     optimizer.zero_grad()
 
     # 1.1 Train on Real Data
-    prediction_real = discriminator(real_data)
+    prediction_real = Discriminator(real_data)
     # calculate error and backpropogate
     error_real = loss(prediction_real, ones_target(N))
     error_real.backward()
 
     # 1.2 Train on Fake Data
-    prediction_fake = discriminator(fake_data)
+    prediction_fake = Discriminator(fake_data)
     # Calculate error and backpropogate
     error_fake = loss(prediction_fake, zeros_target(N))
     error_fake.backward()
@@ -261,13 +262,13 @@ def train_discriminator(optimizer, real_data, fake_data):
     return error_real + error_fake, prediction_real, prediction_fake
 
 
-def train_generator(optimizer, fake_data):
+def train_generator(Discriminator, optimizer, fake_data):
     N = fake_data.size(0)
 
     # Reset gradients
     optimizer.zero_grad()
 
-    prediction = discriminator(fake_data)
+    prediction = Discriminator(fake_data)
 
     # Calculate error and backpropogate
     error = loss(prediction, ones_target(N))
@@ -278,6 +279,30 @@ def train_generator(optimizer, fake_data):
 
     return error
 
+
+def weights_init(model):
+    """
+    The DCGAN paper specifies that the weights should be randomly initialized
+    from a Normal dist of mean=0, stdv=0.02
+    """
+    classname = model.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.normal_(model.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.normal_(model.weight.data, 1.0, 0.02)
+        nn.init.constant_(model.bias.data, 0)
+
+def plot_losses(g_losses, d_losses):
+    # Plot losses after training
+    # TODO: Move to logger class
+    plt.figure(figsize=(10,5))
+    plt.title("Generator and Discriminator Loss During Training")
+    plt.plot(g_losses, label="Gen")
+    plt.plot(d_losses, label="Dis")
+    plt.xlabel("Iterations")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run Lesion GAN')
@@ -297,18 +322,21 @@ if __name__ == "__main__":
     num_channels = 1
     latent_vector_size = 100
     num_feature_maps = 64 # size of feature maps in D and G
+    lr = 0.0002 # Learning Rate for optimizers
     beta1 = 0.5 # beta1 hyperparam for Adam optim.
 
     # Create loader to iterate over data
     data_loader = torch.utils.data.DataLoader(data, batch_size=batch_size, num_workers=workers, shuffle=True)
     num_batches = len(data_loader)
 
-    discriminator = DiscriminatorNet(image_size, num_channels)
-    #generator = GeneratorNet(vector_size)
-    generator = GeneratorNet(image_size, num_channels, latent_vector_size)
+    # Initialize discriminator and generator and initialize weights
+    Discriminator = DiscriminatorNet(image_size, num_channels)
+    Generator = GeneratorNet(image_size, num_channels, latent_vector_size)
+    Generator.apply(weights_init)
+    Discriminator.apply(weights_init)
 
-    d_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(beta1, 0.999))
-    g_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(beta1, 0.999))
+    d_optimizer = optim.Adam(Discriminator.parameters(), lr=lr, betas=(beta1, 0.999))
+    g_optimizer = optim.Adam(Generator.parameters(), lr=lr, betas=(beta1, 0.999))
 
     """
     Binary Cross Entropy Loss is used because it resembles
@@ -329,56 +357,67 @@ if __name__ == "__main__":
 
     # Create logger instance
     logger = Logger(model_name='VGAN', data_name='LESION')
+    g_losses = []
+    d_losses = []
 
     num_epochs = 200
 
-    for epoch in range(num_epochs):
-        for n_batch, (real_batch,_) in enumerate(data_loader):
-            N = real_batch.size(0)
+    try:
+        for epoch in range(num_epochs):
+            for n_batch, (real_batch,_) in enumerate(data_loader):
+                N = real_batch.size(0)
 
-            # 1. Train Discriminator
-            #real_data = Variable(images_to_vectors(real_batch, vector_size))
-            real_data = real_batch
+                # 1. Train Discriminator
+                #real_data = Variable(images_to_vectors(real_batch, vector_size))
+                real_data = real_batch
 
-            # Generate fake data and detach
-            # (so gradients are not calculated for generator)
-            gen_noise = torch.randn(N, 100, 1, 1)
-            fake_data = generator(gen_noise).detach()
-            #fake_data = generator(noise(N)).detach()
+                # Generate fake data and detach
+                # (so gradients are not calculated for generator)
+                gen_noise = torch.randn(N, 100, 1, 1)
+                fake_data = Generator(gen_noise).detach()
+                #fake_data = generator(noise(N)).detach()
 
-            # Train Discrimiator
-            d_error, d_pred_real, d_pred_fake = \
-                train_discriminator(d_optimizer, real_data, fake_data)
-
-
-            # 2. Train Generator
-            #fake_data = generator(noise(N))
-            fake_data = generator(gen_noise)
-
-            # Train Generator
-            g_error = train_generator(g_optimizer, fake_data)
+                # Train Discrimiator
+                d_error, d_pred_real, d_pred_fake = \
+                    train_discriminator(Discriminator, d_optimizer, real_data, fake_data)
 
 
-            # 3. Log Batch Error
-            logger.log(d_error, g_error, epoch, n_batch, num_batches)
+                # 2. Train Generator
+                #fake_data = generator(noise(N))
+                fake_data = Generator(gen_noise)
 
-            # 4. Display Progress periodically
-            if (n_batch) % 10 == 0:
-                test_images = generator(fixed_noise)
-                test_images = test_images.data
+                # Train Generator
+                g_error = train_generator(Discriminator, g_optimizer, fake_data)
 
-                logger.log_images(
-                    test_images, num_test_samples,
-                    epoch, n_batch, num_batches
-                )
 
-                # Display status logs
-                logger.display_status(
-                    epoch, num_epochs, n_batch, num_batches,
-                    d_error, g_error, d_pred_real, d_pred_fake
-                )
+                # 3. Log Batch Error
+                logger.log(d_error, g_error, epoch, n_batch, num_batches)
+
+                # Save Losses for plotting later
+                g_losses.append(g_error.item())
+                d_losses.append(d_error.item())
+
+                # 4. Display Progress periodically
+                if (n_batch) % 10 == 0:
+                    test_images = Generator(fixed_noise)
+                    test_images = test_images.data
+
+                    logger.log_images(
+                        test_images, num_test_samples,
+                        epoch, n_batch, num_batches
+                    )
+
+                    # Display status logs
+                    logger.display_status(
+                        epoch, num_epochs, n_batch, num_batches,
+                        d_error, g_error, d_pred_real, d_pred_fake
+                    )
+    except KeyboardInterrupt:
+        # plot losses if keyboard interrupt
+        plot_losses(g_losses, d_losses)
 
     # END training code
+    plot_losses(g_losses, d_losses)
 
     # --- End tutorial code ---
 
