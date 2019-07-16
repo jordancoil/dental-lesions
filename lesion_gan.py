@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from lesion_dataset import LesionDataset
 
 import sys, argparse
+import decimal
+import random
 import pandas as pd
 
 def main(argv):
@@ -17,9 +19,11 @@ def main(argv):
 
 
 def lesion_data():
-    # df = pd.read_csv("./data_csvs/train_only_ids.csv")
-    df = pd.read_csv("./data_csvs/zeros_and_lesions_only.csv")
-    return LesionDataset(df, "./lesion_images/processed_3_zeros_only/type1/upwards/")
+    df = pd.read_csv("./data_csvs/train_only_ids.csv")
+    return LesionDataset(df, "./lesion_images/all_images_processed_3/")
+
+    # df = pd.read_csv("./data_csvs/zeros_and_lesions_only.csv")
+    # return LesionDataset(df, "./lesion_images/processed_3_zeros_only/type1/upwards/")
 
 def mnist_data():
     compose = transforms.Compose(
@@ -84,29 +88,6 @@ class DiscriminatorNet(nn.Module):
             nn.Sigmoid()
         )
 
-        self.hidden_0 = nn.Sequential(
-            nn.Linear(n_features, 1024),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3)
-        )
-
-        self.hidden_1 = nn.Sequential(
-            nn.Linear(1024, 512),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3)
-        )
-
-        self.hidden_2 = nn.Sequential(
-            nn.Linear(512, 256),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3)
-        )
-
-#        self.out = nn.Sequential(
-#            nn.Linear(256, n_out),
-#            nn.Sigmoid()
-#        )
-
     def forward(self, x):
         x = self.layer_0(x)
         x = self.layer_1(x)
@@ -169,30 +150,7 @@ class GeneratorNet(nn.Module):
         )
         # state size. (n_channels) x 64 x 64
 
-        self.hidden_0 = nn.Sequential(
-            nn.Linear(n_features, 256),
-            nn.LeakyReLU(0.2)
-        )
-
-        self.hidden_1 = nn.Sequential(
-            nn.Linear(256, 512),
-            nn.LeakyReLU(0.2)
-        )
-
-        self.hidden_2 = nn.Sequential(
-            nn.Linear(512, 1024),
-            nn.LeakyReLU(0.2)
-        )
-
-#        self.out = nn.Sequential(
-#            nn.Linear(1024, n_out),
-#            nn.Tanh()
-#        )
-
     def forward(self, x):
-#         x = self.hidden_0(x)
-#         x = self.hidden_1(x)
-#         x = self.hidden_2(x)
         x = self.layer_0(x)
         x = self.layer_1(x)
         x = self.layer_2(x)
@@ -208,7 +166,6 @@ def images_to_vectors(images, target_size):
 
 def vectors_to_images(vectors, target_size):
     # helper function to unflatten images
-    # output: greyscale 28x28 images
     return vectors.view(vectors.size(0), 1, target_size[0], target_size[1])
 
 def noise(size):
@@ -222,18 +179,28 @@ def noise(size):
 Real-images targets are always ones, and fake-images targets
 are always zeros. These helper functions help with this.
 """
-def ones_target(size):
+def ones_target(size, noisy):
     """
     Tensor containing ones, with shape = size
     """
-    data = Variable(torch.ones(size, 1, 1, 1))
+    if noisy:
+        data = Variable(torch.Tensor(size, 1, 1, 1))
+        random_number = float(decimal.Decimal(random.randrange(900, 1000))/1000)
+        data.fill_(random_number)
+    else:
+        data.fill_(random_number)
     return data
 
-def zeros_target(size):
+def zeros_target(size, noisy):
     """
     Tensor containing zeros, with shape = size
     """
-    data = Variable(torch.zeros(size, 1, 1, 1))
+    if noisy:
+        data = Variable(torch.Tensor(size, 1, 1, 1))
+        random_number = float(decimal.Decimal(random.randrange(0, 100))/1000)
+        data.fill_(random_number)
+    else:
+        data = Variable(torch.zeros(size, 1, 1, 1))
     return data
 
 
@@ -246,13 +213,13 @@ def train_discriminator(Discriminator, optimizer, real_data, fake_data):
     # 1.1 Train on Real Data
     prediction_real = Discriminator(real_data)
     # calculate error and backpropogate
-    error_real = loss(prediction_real, ones_target(N))
+    error_real = loss(prediction_real, ones_target(N, noisy=True))
     error_real.backward()
 
     # 1.2 Train on Fake Data
     prediction_fake = Discriminator(fake_data)
     # Calculate error and backpropogate
-    error_fake = loss(prediction_fake, zeros_target(N))
+    error_fake = loss(prediction_fake, zeros_target(N, noisy=True))
     error_fake.backward()
 
     # 1.3 Update weights with gradients
@@ -271,7 +238,7 @@ def train_generator(Discriminator, optimizer, fake_data):
     prediction = Discriminator(fake_data)
 
     # Calculate error and backpropogate
-    error = loss(prediction, ones_target(N))
+    error = loss(prediction, ones_target(N, noisy=True))
     error.backward()
 
     # Update weights with gradients
@@ -360,7 +327,7 @@ if __name__ == "__main__":
     g_losses = []
     d_losses = []
 
-    num_epochs = 200
+    num_epochs = 500
 
     try:
         for epoch in range(num_epochs):
