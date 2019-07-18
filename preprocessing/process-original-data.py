@@ -21,10 +21,12 @@ from PIL import Image
 class ImageProcessor:
 
     def __init__(self, test_run):
-        self.dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lesion_images')
-        self.dst_dir= os.path.join(self.dir_path, 'all_images_processed')
+        self.dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../lesion_images')
+        #self.dst_dir= os.path.join(self.dir_path, 'all_images_processed')
+        self.dst_dir= os.path.join(self.dir_path, 'handpicked_lesion_images_processed_for_gan')
         print("Image destination directory: " + self.dst_dir)
-        self.all_images_path = os.path.join(self.dir_path, 'all_images_cropped_src')
+        #self.all_images_path = os.path.join(self.dir_path, 'all_images_cropped_src')
+        self.all_images_path = os.path.join(self.dir_path, 'handpicked_lesion_images')
         self.filenames = os.listdir(self.all_images_path)
 
         self.data = {
