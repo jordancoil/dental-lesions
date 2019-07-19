@@ -3,6 +3,7 @@ import os
 import argparse
 
 from skimage import io
+from skimage.color import rgb2gray
 import skimage.transform as sktrans
 
 """
@@ -20,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument('--input-dir', type=str, nargs='?')
     parser.add_argument('--output-dir', type=str, nargs='?')
     parser.add_argument('--target-size', type=int, nargs='?')
+    parser.add_argument('--black-white', dest='black_white', action='store_true')
     options = parser.parse_args()
 
     if options.input_dir and options.output_dir:
@@ -38,14 +40,22 @@ if __name__ == "__main__":
                 target_size = (224, 224)
             image = sktrans.resize(image, target_size)
 
+            if options.black_white:
+                image = rgb2gray(image)
+
             if options.rename:
                 """
                 Image names are expected to follow the convention:
-                    - blahblah,blahbalh,(0 or 1).jpg
+                    - blahblah,blahbalh,f1-(0 or 1).jpg
                 So we will keep the last number.
                 """
                 imagename_list = imagename.split(',')
                 new_name = imagename_list[-1]
+                if new_name.startswith('f'):
+                    new_list = new_name.split('-')
+                    new_list[0] = ''
+                    new_name = '-'.join(new_list)
+                    new_name = new_name[1:]
 
             else:
                 new_name = imagename

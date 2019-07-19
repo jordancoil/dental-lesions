@@ -19,8 +19,11 @@ def main(argv):
 
 
 def lesion_data():
-    df = pd.read_csv("./data_csvs/handpicked-lesions-for-gan.csv")
-    return LesionDataset(df, "./lesion_images/handpicked_lesion_images_processed_for_gan/")
+    df = pd.read_csv("./data_csvs/bad-csv-for-gan.csv")
+    return LesionDataset(df, "./lesion_images/processed_3_64x64/")
+    
+    #df = pd.read_csv("./data_csvs/handpicked-for-gan.csv")
+    #return LesionDataset(df, "./lesion_images/handpicked_lesion_images_processed_for_gan/")
 
     # df = pd.read_csv("./data_csvs/zeros_and_lesions_only.csv")
     # return LesionDataset(df, "./lesion_images/processed_3_zeros_only/type1/upwards/")
@@ -327,7 +330,7 @@ if __name__ == "__main__":
     g_losses = []
     d_losses = []
 
-    num_epochs = 50
+    num_epochs = 200
 
     try:
         for epoch in range(num_epochs):
