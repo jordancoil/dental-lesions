@@ -19,7 +19,7 @@ def main(argv):
 
 
 def lesion_data():
-    df = pd.read_csv("./data_csvs/bad-csv-for-gan.csv")
+    df = pd.read_csv("./data_csvs/unlabeled-csv-for-gan.csv")
     return LesionDataset(df, "./lesion_images/processed_3_64x64/")
     
     #df = pd.read_csv("./data_csvs/handpicked-for-gan.csv")
@@ -47,7 +47,6 @@ class DiscriminatorNet(nn.Module):
 
     Structure:
         - 3 hidden layers, each followed by leaky-ReLU 
-        and dropout to prevent overfitting.
         - A Sigmoid function is applied to the output 
         to obtain a value in the range(0, 1)
     """
@@ -109,6 +108,7 @@ class GeneratorNet(nn.Module):
 
     Structure:
         - 3 hidden layers, each followed by leaky-ReLU
+            LeakyReLU avoids vanishing gradient problem
         - A TanH function is applied to the output to
         map resulting values into (-1, 1) range (same
         range as MNIST)
@@ -119,31 +119,36 @@ class GeneratorNet(nn.Module):
         n_out = image_size # eg. 28x28 = 784 (image size)
         n_channels = num_channels
 
+        # Naming the arguments are a guide for the other layers.
         self.layer_0 = nn.Sequential(
-            nn.ConvTranspose2d(n_features, n_out * 8, 4, 1, 0, bias=False),
+            nn.ConvTranspose2d(n_features, n_out * 8, 
+                kernel_size=4, 
+                stride=1, 
+                padding=0, 
+                bias=False),
             nn.BatchNorm2d(n_out * 8),
-            nn.ReLU(True)
+            nn.LeakyReLU(0.2, inplace=True)
         )
         # state size. (n_out*8) x 4 x 4
 
         self.layer_1 = nn.Sequential(
             nn.ConvTranspose2d(n_out * 8, n_out * 4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(n_out * 4),
-            nn.ReLU(True)
+            nn.LeakyReLU(0.2, inplace=True)
         )
         # state size. (n_out*4) x 8 x 8
 
         self.layer_2 = nn.Sequential(
             nn.ConvTranspose2d(n_out * 4, n_out * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(n_out * 2),
-            nn.ReLU(True)
+            nn.LeakyReLU(0.2, inplace=True)
         )
         # state size. (n_out*2) x 16 x 16
 
         self.layer_3 = nn.Sequential(
             nn.ConvTranspose2d(n_out * 2, n_out, 4, 2, 1, bias=False),
             nn.BatchNorm2d(n_out),
-            nn.ReLU(True)
+            nn.LeakyReLU(0.2, inplace=True)
         )
         # state size. (n_out) x 32 x 32
 
@@ -330,7 +335,7 @@ if __name__ == "__main__":
     g_losses = []
     d_losses = []
 
-    num_epochs = 200
+    num_epochs = 40
 
     try:
         for epoch in range(num_epochs):
