@@ -297,7 +297,8 @@ if __name__ == "__main__":
     num_channels = 1
     latent_vector_size = 100
     num_feature_maps = 64 # size of feature maps in D and G
-    lr = 0.0002 # Learning Rate for optimizers
+    lr_d = 0.0005 # Learning Rate for optimizers
+    lr_g = 2e-4
     beta1 = 0.5 # beta1 hyperparam for Adam optim.
 
     # Create loader to iterate over data
@@ -310,8 +311,8 @@ if __name__ == "__main__":
     Generator.apply(weights_init)
     Discriminator.apply(weights_init)
 
-    d_optimizer = optim.Adam(Discriminator.parameters(), lr=lr, betas=(beta1, 0.999))
-    g_optimizer = optim.Adam(Generator.parameters(), lr=lr, betas=(beta1, 0.999))
+    d_optimizer = optim.Adam(Discriminator.parameters(), lr=lr_d, betas=(beta1, 0.999))
+    g_optimizer = optim.Adam(Generator.parameters(), lr=lr_g, betas=(beta1, 0.999))
 
     """
     Binary Cross Entropy Loss is used because it resembles
@@ -335,7 +336,7 @@ if __name__ == "__main__":
     g_losses = []
     d_losses = []
 
-    num_epochs = 40
+    num_epochs = 200
 
     try:
         for epoch in range(num_epochs):
