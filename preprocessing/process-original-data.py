@@ -1,6 +1,10 @@
 import pandas as pd
 import re
 import os
+import argparse
+
+from datetime import datetime
+
 import shutil
 from PIL import Image
 
@@ -20,13 +24,12 @@ from PIL import Image
 
 class ImageProcessor:
 
-    def __init__(self, test_run):
+    def __init__(self, test_run, process_images, output_folder, input_folder='all_images_cropped_src'):
         self.dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../lesion_images')
-        #self.dst_dir= os.path.join(self.dir_path, 'all_images_processed')
-        self.dst_dir= os.path.join(self.dir_path, 'handpicked_lesion_images_processed_for_gan')
+        self.dst_dir= os.path.join(self.dir_path, output_folder)
         print("Image destination directory: " + self.dst_dir)
         #self.all_images_path = os.path.join(self.dir_path, 'all_images_cropped_src')
-        self.all_images_path = os.path.join(self.dir_path, 'handpicked_lesion_images')
+        self.all_images_path = os.path.join(self.dir_path, input_folder)
         self.filenames = os.listdir(self.all_images_path)
 
         self.data = {
@@ -38,6 +41,44 @@ class ImageProcessor:
             'sequenceNumber': [],
             'lesion': []
         }
+
+        self.tooth_num_map = {
+            '0': '0',
+            '18': '1',
+            '17': '2',
+            '16': '3',
+            '15': '4',
+            '14': '5',
+            '13': '6',
+            '12': '7',
+            '11': '8',
+            '21': '9',
+            '22': '10',
+            '23': '11',
+            '24': '12',
+            '25': '13',
+            '26': '14',
+            '27': '15',
+            '28': '16',
+            '38': '17',
+            '37': '18',
+            '36': '19',
+            '35': '20',
+            '34': '21',
+            '33': '22',
+            '32': '23',
+            '31': '24',
+            '41': '25',
+            '42': '26',
+            '43': '27',
+            '44': '28',
+            '45': '29',
+            '46': '30',
+            '47': '31',
+            '48': '32',
+        }
+
+        self.process_images = process_images
 
         self.test_run = test_run
 
@@ -74,7 +115,7 @@ class ImageProcessor:
             print('Sequence Number: ' + sequenceNum)
             params = params[:-1]
 
-            teethNumbers = params[0]
+            teethNumbers = self.tooth_num_map[params[0].split('-')[0]]
             params = params[1:]
 
             # Extract date
@@ -126,18 +167,38 @@ class ImageProcessor:
 
                 self.data['lesion'].append(lesion)
 
-                new_file_path = os.path.join(self.dst_dir, new_filename)
+                if self.process_images:
+                    new_file_path = os.path.join(self.dst_dir, new_filename)
 
-                print("saving lesion image: " + filename)
-                print("as: " + new_filename)
-                print("---")
+                    print("saving lesion image: " + filename)
+                    print("as: " + new_filename)
+                    print("---")
 
-                image_to_save.save(new_file_path, 'JPEG')
+                    image_to_save.save(new_file_path, 'JPEG')
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='process folder of labeled images into csv and images ready for training.')
+    parser.add_argument('--process-images', dest='process_images', action='store_true')
+    parser.add_argument('--csv-name', type=str, nargs='?')
+    parser.add_argument('--output-dir', type=str, nargs='?')
+    options = parser.parse_args()
 
-image_processor = ImageProcessor(test_run=False)
-image_processor.process_all_images()
+    if options.process_images and not options.output_dir:
+        print('Please specify an output dir using the argument "--output-dir"')
+        exit()
+    elif not options.output_dir:
+        output_dir = 'placeholder'
 
-dataFrame = pd.DataFrame(data=image_processor.data)
-dataFrame.to_csv("./lesion-csv.csv")
+    if options.csv_name:
+        csv_name = options.csv_name + '.csv'
+    else:
+        csv_name = str(datetime.now()) + '_lesions.csv'
+
+    process_images = options.process_images
+
+    image_processor = ImageProcessor(False, process_images, output_dir)
+    image_processor.process_all_images()
+
+    dataFrame = pd.DataFrame(data=image_processor.data)
+    dataFrame.to_csv("../data_csvs/" + csv_name)
 
