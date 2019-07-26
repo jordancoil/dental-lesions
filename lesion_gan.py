@@ -3,30 +3,47 @@ from torch import nn, optim
 from torch.autograd import Variable
 from torchvision import transforms, datasets
 
+from skimage.color import rgb2gray
+import skimage.transform as sktrans
+
 from utils import Logger
 import matplotlib.pyplot as plt
 
-from lesion_dataset import LesionDataset
+from lesion_dataset_for_cGAN import LesionDatasetCGAN
 
 import sys, argparse
 import decimal
 import random
 import pandas as pd
 
-def main(argv):
-    x_file = options.xfile
-    # TODO: use x_file to run a GAN on lesion images
 
+class CustomResize(object):
+    
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+    def __call__(self, image):
+        return sktrans.resize(image, self.output_size)
+
+
+class CustomGrayscale(object):
+
+    def __call__(self, image):
+        return rgb2gray(image)
 
 def lesion_data():
-    df = pd.read_csv("./data_csvs/unlabeled-csv-for-gan.csv")
-    return LesionDataset(df, "./lesion_images/processed_3_64x64/")
+    custom_transforms = transforms.Compose([
+        # CustomGrayscale(),
+        CustomResize((64,64))
+    ])
+    df = pd.read_csv("./data_csvs/cGAN_data.csv")
+    return LesionDatasetCGAN(df, "./lesion_images/all_images_processed_3/", transform=custom_transforms)
     
-    #df = pd.read_csv("./data_csvs/handpicked-for-gan.csv")
-    #return LesionDataset(df, "./lesion_images/handpicked_lesion_images_processed_for_gan/")
-
-    # df = pd.read_csv("./data_csvs/zeros_and_lesions_only.csv")
-    # return LesionDataset(df, "./lesion_images/processed_3_zeros_only/type1/upwards/")
 
 def mnist_data():
     compose = transforms.Compose(
@@ -340,7 +357,7 @@ if __name__ == "__main__":
 
     try:
         for epoch in range(num_epochs):
-            for n_batch, (real_batch,_) in enumerate(data_loader):
+            for n_batch, (real_batch, lesion, tooth_num) in enumerate(data_loader):
                 N = real_batch.size(0)
 
                 # 1. Train Discriminator
