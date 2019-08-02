@@ -50,10 +50,10 @@ class LesionDatasetCGAN(Dataset):
 
         lesion = self.lesions_df.iloc[idx].lesion
         lesion = lesion.astype('float')
-        lesion = torch.from_numpy(np.array([lesion]))
 
         tooth_num = self.lesions_df.iloc[idx].teethNumbers
         tooth_num = tooth_num.astype('float')
-        tooth_num = torch.from_numpy(np.array([tooth_num]))
 
-        return image, lesion, tooth_num
+        labels = torch.from_numpy(np.array([lesion, tooth_num]))
+
+        return image, labels

@@ -67,14 +67,22 @@ class DiscriminatorNet(nn.Module):
         - A Sigmoid function is applied to the output 
         to obtain a value in the range(0, 1)
     """
-    def __init__(self, image__size, num_channels):
+    def __init__(self, image_size, num_channels):
         super(DiscriminatorNet, self).__init__()
 
         # eg. 28x28 = 784 (image vector size)
         n_features = image_size         
         n_out = 1
         n_channels = num_channels
+        n_labels = 2
+        n_inputs = image_size + n_labels
 
+        self.label_layer = nn.Sequential(
+            nn.Linear(n_labels, 50),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        # Note that for both layer 0 have output size n_features/2
         # input: (n_channels) x 64 x 64
         self.layer_0 = nn.Sequential(
             nn.Conv2d(n_channels, n_features, 4, 2, 1, bias=False),
@@ -103,15 +111,23 @@ class DiscriminatorNet(nn.Module):
         )
 
         self.out = nn.Sequential(
-            nn.Conv2d(n_features * 8, n_out, 4, 1, 0, bias=False),
+            nn.Conv2d(n_features * 8+50, n_out, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
 
-    def forward(self, x):
+    def forward(self, x, labels):
+        batch_size = x.size(0)
+        #x = x.view(batch_size, 1, 64, 64)
+
         x = self.layer_0(x)
         x = self.layer_1(x)
         x = self.layer_2(x)
         x = self.layer_3(x)
+
+        z = self.label_layer(labels)
+
+        x = torch.cat([x, z], 1)
+
         x = self.out(x)
         return x
 
@@ -229,20 +245,20 @@ def zeros_target(size, noisy):
     return data
 
 
-def train_discriminator(Discriminator, optimizer, real_data, fake_data):
+def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data):
     N = real_data.size(0)
 
     # Reset gradients
     optimizer.zero_grad()
 
     # 1.1 Train on Real Data
-    prediction_real = Discriminator(real_data)
+    prediction_real = Discriminator(real_data, labels)
     # calculate error and backpropogate
     error_real = loss(prediction_real, ones_target(N, noisy=True))
     error_real.backward()
 
     # 1.2 Train on Fake Data
-    prediction_fake = Discriminator(fake_data)
+    prediction_fake = Discriminator(fake_data, [0, 0])
     # Calculate error and backpropogate
     error_fake = loss(prediction_fake, zeros_target(N, noisy=True))
     error_fake.backward()
@@ -357,12 +373,15 @@ if __name__ == "__main__":
 
     try:
         for epoch in range(num_epochs):
-            for n_batch, (real_batch, lesion, tooth_num) in enumerate(data_loader):
+            for n_batch, (real_batch, labels) in enumerate(data_loader):
                 N = real_batch.size(0)
 
                 # 1. Train Discriminator
                 #real_data = Variable(images_to_vectors(real_batch, vector_size))
-                real_data = real_batch
+                real_data = real_batch.float()
+                print(real_data.size())
+                labels = labels.float()
+                print(labels)
 
                 # Generate fake data and detach
                 # (so gradients are not calculated for generator)
@@ -372,7 +391,7 @@ if __name__ == "__main__":
 
                 # Train Discrimiator
                 d_error, d_pred_real, d_pred_fake = \
-                    train_discriminator(Discriminator, d_optimizer, real_data, fake_data)
+                    train_discriminator(Discriminator, d_optimizer, real_data, labels, fake_data)
 
 
                 # 2. Train Generator
