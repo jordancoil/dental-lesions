@@ -45,15 +45,6 @@ def lesion_data():
     return LesionDatasetCGAN(df, "./lesion_images/all_images_processed_3/", transform=custom_transforms)
     
 
-def mnist_data():
-    compose = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize((.5, .5, .5), (.5, .5, .5))
-            ])
-
-    out_dir = './dataset'
-    return datasets.MNIST(root=out_dir, train=True, transform=compose, download=True)
-
 class DiscriminatorNet(nn.Module):
     """
     A three hidden-layer discriminative neural network
@@ -111,9 +102,12 @@ class DiscriminatorNet(nn.Module):
         )
 
         self.out = nn.Sequential(
-            nn.Conv2d(n_features * 8+50, n_out, 4, 1, 0, bias=False),
+            nn.Linear(512*4*4 + 50, 1024),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(1024, n_out),
             nn.Sigmoid()
         )
+        
 
     def forward(self, x, labels):
         batch_size = x.size(0)
@@ -126,6 +120,7 @@ class DiscriminatorNet(nn.Module):
 
         z = self.label_layer(labels)
 
+        x = x.view(batch_size, 512*4*4)
         x = torch.cat([x, z], 1)
 
         x = self.out(x)
@@ -245,7 +240,7 @@ def zeros_target(size, noisy):
     return data
 
 
-def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data):
+def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data, fake_labels):
     N = real_data.size(0)
 
     # Reset gradients
@@ -258,7 +253,7 @@ def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data):
     error_real.backward()
 
     # 1.2 Train on Fake Data
-    prediction_fake = Discriminator(fake_data, [0, 0])
+    prediction_fake = Discriminator(fake_data, fake_labels)
     # Calculate error and backpropogate
     error_fake = loss(prediction_fake, zeros_target(N, noisy=True))
     error_fake.backward()
@@ -270,13 +265,13 @@ def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data):
     return error_real + error_fake, prediction_real, prediction_fake
 
 
-def train_generator(Discriminator, optimizer, fake_data):
+def train_generator(Discriminator, optimizer, fake_data, fake_labels):
     N = fake_data.size(0)
 
     # Reset gradients
     optimizer.zero_grad()
 
-    prediction = Discriminator(fake_data)
+    prediction = Discriminator(fake_data, fake_labels)
 
     # Calculate error and backpropogate
     error = loss(prediction, ones_target(N, noisy=True))
@@ -316,6 +311,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run Lesion GAN')
     parser.add_argument('--xfile', type=str, nargs='?')
     parser.add_argument('--test', dest='feature', action='store_true')
+    parser.add_argument('--gpu', dest='cuda', action='store_true')
     options = parser.parse_args()
 
     # Load Data
@@ -376,22 +372,27 @@ if __name__ == "__main__":
             for n_batch, (real_batch, labels) in enumerate(data_loader):
                 N = real_batch.size(0)
 
+                if options.cuda:
+                    real_batch = real_batch.cuda()
+                    labels = labels.cuda()
+
                 # 1. Train Discriminator
                 #real_data = Variable(images_to_vectors(real_batch, vector_size))
                 real_data = real_batch.float()
-                print(real_data.size())
                 labels = labels.float()
-                print(labels)
 
                 # Generate fake data and detach
                 # (so gradients are not calculated for generator)
                 gen_noise = torch.randn(N, 100, 1, 1)
                 fake_data = Generator(gen_noise).detach()
-                #fake_data = generator(noise(N)).detach()
+
+                fake_label_1 = torch.FloatTensor(N, 1).random_(0, 1)
+                fake_label_2 = torch.FloatTensor(N, 1).random_(1, 32)
+                fake_labels = torch.cat([fake_label_1, fake_label_2], 1)
 
                 # Train Discrimiator
                 d_error, d_pred_real, d_pred_fake = \
-                    train_discriminator(Discriminator, d_optimizer, real_data, labels, fake_data)
+                    train_discriminator(Discriminator, d_optimizer, real_data, labels, fake_data, fake_labels)
 
 
                 # 2. Train Generator
@@ -399,7 +400,7 @@ if __name__ == "__main__":
                 fake_data = Generator(gen_noise)
 
                 # Train Generator
-                g_error = train_generator(Discriminator, g_optimizer, fake_data)
+                g_error = train_generator(Discriminator, g_optimizer, fake_data, fake_labels)
 
 
                 # 3. Log Batch Error
