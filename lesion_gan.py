@@ -66,10 +66,11 @@ class DiscriminatorNet(nn.Module):
         n_out = 1
         n_channels = num_channels
         n_labels = 2
+        z_dim = 50
         n_inputs = image_size + n_labels
 
         self.label_layer = nn.Sequential(
-            nn.Linear(n_labels, 50),
+            nn.Linear(n_labels, z_dim),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
@@ -102,7 +103,7 @@ class DiscriminatorNet(nn.Module):
         )
 
         self.out = nn.Sequential(
-            nn.Linear(512*4*4 + 50, 1024),
+            nn.Linear(512*4*4 + z_dim, 1024),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(1024, n_out),
             nn.Sigmoid()
@@ -146,10 +147,21 @@ class GeneratorNet(nn.Module):
         n_features = latent_vector_size
         n_out = image_size # eg. 28x28 = 784 (image size)
         n_channels = num_channels
+        n_labels = 2
+        z_dim = 50
+
+
+        self.labels_layer = nn.Sequential(
+            nn.Linear(n_labels, z_dim),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        #self.fc_0 = nn.Linear(n_features + z_dim, )
+
 
         # Naming the arguments are a guide for the other layers.
         self.layer_0 = nn.Sequential(
-            nn.ConvTranspose2d(n_features, n_out * 8, 
+            nn.ConvTranspose2d(n_features + z_dim, n_out * 8, 
                 kernel_size=4, 
                 stride=1, 
                 padding=0, 
@@ -186,7 +198,15 @@ class GeneratorNet(nn.Module):
         )
         # state size. (n_channels) x 64 x 64
 
-    def forward(self, x):
+    def forward(self, x, labels):
+        batch_size = x.size(0)
+
+        z = self.labels_layer(labels)
+
+        x = x.view(batch_size, x.size(1) * x.size(2) * x.size(3))
+        x = torch.cat([x, z], 1)
+        x = x.view(batch_size, 150, 1, 1)
+
         x = self.layer_0(x)
         x = self.layer_1(x)
         x = self.layer_2(x)
@@ -357,6 +377,10 @@ if __name__ == "__main__":
     num_test_samples = 16
     test_noise = noise(num_test_samples)
     fixed_noise = torch.randn(num_test_samples, latent_vector_size, 1, 1)
+    fixed_label_1 = torch.FloatTensor(num_test_samples, 1).random_(0, 2)
+    fixed_label_2 = torch.FloatTensor(num_test_samples, 1).random_(0, 33)
+    fixed_labels = torch.cat([fixed_label_1, fixed_label_2], 1)
+    print(fixed_labels)
 
     # START training code
 
@@ -384,11 +408,11 @@ if __name__ == "__main__":
                 # Generate fake data and detach
                 # (so gradients are not calculated for generator)
                 gen_noise = torch.randn(N, 100, 1, 1)
-                fake_data = Generator(gen_noise).detach()
-
-                fake_label_1 = torch.FloatTensor(N, 1).random_(0, 1)
-                fake_label_2 = torch.FloatTensor(N, 1).random_(1, 32)
+                fake_label_1 = torch.FloatTensor(N, 1).random_(0, 2)
+                fake_label_2 = torch.FloatTensor(N, 1).random_(0, 33)
                 fake_labels = torch.cat([fake_label_1, fake_label_2], 1)
+
+                fake_data = Generator(gen_noise, fake_labels).detach()
 
                 # Train Discrimiator
                 d_error, d_pred_real, d_pred_fake = \
@@ -397,7 +421,7 @@ if __name__ == "__main__":
 
                 # 2. Train Generator
                 #fake_data = generator(noise(N))
-                fake_data = Generator(gen_noise)
+                fake_data = Generator(gen_noise, fake_labels)
 
                 # Train Generator
                 g_error = train_generator(Discriminator, g_optimizer, fake_data, fake_labels)
@@ -412,7 +436,7 @@ if __name__ == "__main__":
 
                 # 4. Display Progress periodically
                 if (n_batch) % 10 == 0:
-                    test_images = Generator(fixed_noise)
+                    test_images = Generator(fixed_noise, fixed_labels)
                     test_images = test_images.data
 
                     logger.log_images(
