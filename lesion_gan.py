@@ -41,8 +41,11 @@ def lesion_data():
         # CustomGrayscale(),
         CustomResize((64,64))
     ])
-    df = pd.read_csv("./data_csvs/cGAN_data.csv")
-    return LesionDatasetCGAN(df, "./lesion_images/all_images_processed_3/", transform=custom_transforms)
+    #df = pd.read_csv("./data_csvs/cGAN_data.csv")
+    #folder = "./lesion_images/all_images_processed_3/"
+    df = pd.read_csv("./data_csvs/cGAN_data_subset_1.csv")
+    folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
+    return LesionDatasetCGAN(df, folder, transform=custom_transforms)
     
 
 class DiscriminatorNet(nn.Module):
