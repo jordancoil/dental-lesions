@@ -16,7 +16,7 @@ import decimal
 import random
 import pandas as pd
 
-from Networks.gan_networks import CGAN_DiscriminatorNet
+from Networks.gan_networks import CGAN_DiscriminatorNet, CGAN_GeneratorNet
 
 class CustomResize(object):
     
@@ -47,96 +47,6 @@ def lesion_data():
     df = pd.read_csv("./data_csvs/cGAN_data_subset_1.csv")
     folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
     return LesionDatasetCGAN(df, folder, transform=custom_transforms)
-    
-
-class GeneratorNet(nn.Module):
-    """
-    A three hidden-layer generative neural network
-
-    This network takes a latent variable vector as input,
-    and returns a flattened vector representation of an
-    image.
-
-    Structure:
-        - 3 hidden layers, each followed by leaky-ReLU
-            LeakyReLU avoids vanishing gradient problem
-        - A TanH function is applied to the output to
-        map resulting values into (-1, 1) range (same
-        range as MNIST)
-    """
-    def __init__(self, image_size, num_channels, latent_vector_size):
-        super(GeneratorNet, self).__init__()
-        n_features = latent_vector_size
-        n_out = image_size # eg. 28x28 = 784 (image size)
-        n_channels = num_channels
-        n_labels = 2
-        z_dim = 50
-
-
-        self.labels_layer = nn.Sequential(
-            nn.Linear(n_labels, z_dim),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        #self.fc_0 = nn.Linear(n_features + z_dim, )
-
-
-        # Naming the arguments are a guide for the other layers.
-        self.layer_0 = nn.Sequential(
-            nn.ConvTranspose2d(n_features + z_dim, n_out * 8, 
-                kernel_size=4, 
-                stride=1, 
-                padding=0, 
-                bias=False),
-            nn.BatchNorm2d(n_out * 8),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-        # state size. (n_out*8) x 4 x 4
-
-        self.layer_1 = nn.Sequential(
-            nn.ConvTranspose2d(n_out * 8, n_out * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(n_out * 4),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-        # state size. (n_out*4) x 8 x 8
-
-        self.layer_2 = nn.Sequential(
-            nn.ConvTranspose2d(n_out * 4, n_out * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(n_out * 2),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-        # state size. (n_out*2) x 16 x 16
-
-        self.layer_3 = nn.Sequential(
-            nn.ConvTranspose2d(n_out * 2, n_out, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(n_out),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-        # state size. (n_out) x 32 x 32
-
-        self.out = nn.Sequential(
-            nn.ConvTranspose2d(n_out, n_channels, 4, 2, 1, bias=False),
-            nn.Tanh()
-        )
-        # state size. (n_channels) x 64 x 64
-
-    def forward(self, x, labels):
-        batch_size = x.size(0)
-
-        z = self.labels_layer(labels)
-
-        x = x.view(batch_size, x.size(1) * x.size(2) * x.size(3))
-        x = torch.cat([x, z], 1)
-        x = x.view(batch_size, 150, 1, 1)
-
-        x = self.layer_0(x)
-        x = self.layer_1(x)
-        x = self.layer_2(x)
-        x = self.layer_3(x)
-        x = self.out(x)
-        return x
-
-
 
 def images_to_vectors(images, target_size):
     # helper function to flatten images
@@ -279,7 +189,7 @@ if __name__ == "__main__":
 
     # Initialize discriminator and generator and initialize weights
     Discriminator = CGAN_DiscriminatorNet(image_size, num_channels, num_labels)
-    Generator = GeneratorNet(image_size, num_channels, latent_vector_size)
+    Generator = CGAN_GeneratorNet(image_size, num_channels, num_labels, latent_vector_size)
     Generator.apply(weights_init)
     Discriminator.apply(weights_init)
 
