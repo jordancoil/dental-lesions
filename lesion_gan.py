@@ -16,6 +16,7 @@ import decimal
 import random
 import pandas as pd
 
+from Networks.gan_networks import CGAN_DiscriminatorNet
 
 class CustomResize(object):
     
@@ -47,88 +48,6 @@ def lesion_data():
     folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
     return LesionDatasetCGAN(df, folder, transform=custom_transforms)
     
-
-class DiscriminatorNet(nn.Module):
-    """
-    A three hidden-layer discriminative neural network
-
-    This network takes a flattened image as its input,
-    and returns the probability of it belonging to the
-    real dataset, or the synthetic dataset.
-
-    Structure:
-        - 3 hidden layers, each followed by leaky-ReLU 
-        - A Sigmoid function is applied to the output 
-        to obtain a value in the range(0, 1)
-    """
-    def __init__(self, image_size, num_channels):
-        super(DiscriminatorNet, self).__init__()
-
-        # eg. 28x28 = 784 (image vector size)
-        n_features = image_size         
-        n_out = 1
-        n_channels = num_channels
-        n_labels = 2
-        z_dim = 50
-        n_inputs = image_size + n_labels
-
-        self.label_layer = nn.Sequential(
-            nn.Linear(n_labels, z_dim),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        # Note that for both layer 0 have output size n_features/2
-        # input: (n_channels) x 64 x 64
-        self.layer_0 = nn.Sequential(
-            nn.Conv2d(n_channels, n_features, 4, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        # state size: (n_features) x 32 x 32
-        self.layer_1 = nn.Sequential(
-            nn.Conv2d(n_features, n_features * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(n_features * 2),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        # state size: (n_featuers * 2) x 16 x 16
-        self.layer_2 = nn.Sequential(
-            nn.Conv2d(n_features * 2, n_features * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(n_features * 4),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        # state size: (n_featuers * 4) x 8 x 8
-        self.layer_3 = nn.Sequential(
-            nn.Conv2d(n_features * 4, n_features * 8, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(n_features * 8),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        self.out = nn.Sequential(
-            nn.Linear(512*4*4 + z_dim, 1024),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(1024, n_out),
-            nn.Sigmoid()
-        )
-        
-
-    def forward(self, x, labels):
-        batch_size = x.size(0)
-        #x = x.view(batch_size, 1, 64, 64)
-
-        x = self.layer_0(x)
-        x = self.layer_1(x)
-        x = self.layer_2(x)
-        x = self.layer_3(x)
-
-        z = self.label_layer(labels)
-
-        x = x.view(batch_size, 512*4*4)
-        x = torch.cat([x, z], 1)
-
-        x = self.out(x)
-        return x
 
 class GeneratorNet(nn.Module):
     """
@@ -347,6 +266,7 @@ if __name__ == "__main__":
     batch_size = 16
     image_size = 64 # 64 x 64 x num_channels
     num_channels = 1
+    num_labels = 2 # Number of additional labels used by the cGAN
     latent_vector_size = 100
     num_feature_maps = 64 # size of feature maps in D and G
     lr_d = 0.0005 # Learning Rate for optimizers
@@ -358,7 +278,7 @@ if __name__ == "__main__":
     num_batches = len(data_loader)
 
     # Initialize discriminator and generator and initialize weights
-    Discriminator = DiscriminatorNet(image_size, num_channels)
+    Discriminator = CGAN_DiscriminatorNet(image_size, num_channels, num_labels)
     Generator = GeneratorNet(image_size, num_channels, latent_vector_size)
     Generator.apply(weights_init)
     Discriminator.apply(weights_init)
@@ -383,7 +303,6 @@ if __name__ == "__main__":
     fixed_label_1 = torch.FloatTensor(num_test_samples, 1).random_(0, 2)
     fixed_label_2 = torch.FloatTensor(num_test_samples, 1).random_(0, 33)
     fixed_labels = torch.cat([fixed_label_1, fixed_label_2], 1)
-    print(fixed_labels)
 
     # START training code
 
