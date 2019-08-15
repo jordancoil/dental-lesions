@@ -101,7 +101,7 @@ class CGAN_GeneratorNet(nn.Module):
           4 convolutional layers each with Batch Normalization 
           and LeakyReLU
         - output layer makes a final convulution before applying
-          a TanH function to map the resulting balues into a 
+          a TanH function to map the resulting values into a 
           (-1, 1) range
     """
 
@@ -175,6 +175,129 @@ class CGAN_GeneratorNet(nn.Module):
         x = self.layer_3(x)
         return self.out(x)
 
+class GAN_DiscriminatorNet(nn.Module):
+    """
+    A Discriminator Network as Part of a Vanilla GAN
+
+    This network takes a batch of images as its inputs
+    and returns a probability whether or not the images belong
+    to a target dataset or not.
+
+    Structure:
+        - images are processed through 4 convolutional layers
+          each with Batch Normalization and LeakyReLU
+        - output layer makes a prediction via Sigmoid function in the
+          range (0, 1)
+    """
+
+    def __init__(self, image_size, num_channels):
+        super(GAN_DiscriminatorNet, self).__init__()
+
+        # Image Variables
+        n_features = image_size
+        n_channels = num_channels
+
+        n_out = 1
+
+        self.layer_0 = nn.Sequential(
+            nn.Conv2d(n_channels, n_features, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.layer_1 = nn.Sequential(
+            nn.Conv2d(n_features, n_features * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_features * 2),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.layer_2 = nn.Sequential(
+            nn.Conv2d(n_features * 2, n_features * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_features * 4),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.layer_3 = nn.Sequential(
+            nn.Conv2d(n_features * 4, n_features * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_features * 8),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.out = nn.Sequential(
+            nn.Conv2d(n_features * 8, n_out, 4, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
+
+    
+    def forward(self, images):
+        x = self.layer_0(images)
+        x = self.layer_1(x)
+        x = self.layer_2(x)
+        x = self.layer_3(x)
+        return self.out(x)
+    
+
+class GAN_GeneratorNet(nn.Module):
+    """
+    A Generative Network as Part of a Vanilla GAN
+
+    Takes a batch of randomly generated latent vectors as inputs
+    and returns images based on those inputs
+
+    Structure:
+        - images a processed through 4 convolutional layers, each
+          with Batch Normalization and Leaky ReLU layers
+        - the output applies a TanH function to map the resulting
+          values into a (-1, 1) range.
+    """
+
+    def __init__(self, image_size, num_channels, latent_vector_size):
+        super(GAN_GeneratorNet, self).__init__()
+
+        # Image Variables
+        n_channels = num_channels
+        n_out = image_size
+        z_dim = latent_vector_size
+
+        # Naming arguments for this layer as a guide for other layers
+        self.layer_0 = nn.Sequential(
+            nn.ConvTranspose2d(z_dim, n_out * 8,
+                kernel_size=4,
+                stride=1,
+                padding=0,
+                bias=False),
+            nn.BatchNorm2d(n_out * 8),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.layer_1 = nn.Sequential(
+            nn.ConvTranspose2d(n_out * 8, n_out * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_out * 4),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.layer_2 = nn.Sequential(
+            nn.ConvTranspose2d(n_out * 4, n_out * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_out * 2),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.layer_3 = nn.Sequential(
+            nn.ConvTranspose2d(n_out * 2, n_out, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(n_out),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.out = nn.Sequential(
+            nn.ConvTranspose2d(n_out, n_channels, 4, 2, 1, bias=False),
+            nn.Tanh()
+        )
+
+    def forward(self, images):
+        x = self.layer_0(images)
+        x = self.layer_1(x)
+        x = self.layer_2(x)
+        x = self.layer_3(x)
+        return self.out(x)
 
 
 

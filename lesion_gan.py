@@ -16,7 +16,8 @@ import decimal
 import random
 import pandas as pd
 
-from Networks.gan_networks import CGAN_DiscriminatorNet, CGAN_GeneratorNet
+from Networks.gan_networks import CGAN_DiscriminatorNet, CGAN_GeneratorNet, \
+        GAN_DiscriminatorNet, GAN_GeneratorNet
 
 class CustomResize(object):
     
@@ -48,21 +49,6 @@ def lesion_data():
     folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
     return LesionDatasetCGAN(df, folder, transform=custom_transforms)
 
-def images_to_vectors(images, target_size):
-    # helper function to flatten images
-    return images.view(images.size(0), target_size)
-
-def vectors_to_images(vectors, target_size):
-    # helper function to unflatten images
-    return vectors.view(vectors.size(0), 1, target_size[0], target_size[1])
-
-def noise(size):
-    """
-    Generates a 1-d vector of gaussian sampled random values
-    """
-    n = Variable(torch.randn(size, 100))
-    return n
-
 """
 Real-images targets are always ones, and fake-images targets
 are always zeros. These helper functions help with this.
@@ -92,20 +78,26 @@ def zeros_target(size, noisy):
     return data
 
 
-def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data, fake_labels):
+def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data, fake_labels, train_CGAN):
     N = real_data.size(0)
 
     # Reset gradients
     optimizer.zero_grad()
 
     # 1.1 Train on Real Data
-    prediction_real = Discriminator(real_data, labels)
+    if train_CGAN:
+        prediction_real = Discriminator(real_data, labels)
+    else:
+        prediction_real = Discriminator(real_data)
     # calculate error and backpropogate
     error_real = loss(prediction_real, ones_target(N, noisy=True))
     error_real.backward()
 
     # 1.2 Train on Fake Data
-    prediction_fake = Discriminator(fake_data, fake_labels)
+    if train_CGAN:
+        prediction_fake = Discriminator(fake_data, fake_labels)
+    else:
+        prediction_fake = Discriminator(fake_data)
     # Calculate error and backpropogate
     error_fake = loss(prediction_fake, zeros_target(N, noisy=True))
     error_fake.backward()
@@ -117,13 +109,16 @@ def train_discriminator(Discriminator, optimizer, real_data, labels, fake_data, 
     return error_real + error_fake, prediction_real, prediction_fake
 
 
-def train_generator(Discriminator, optimizer, fake_data, fake_labels):
+def train_generator(Discriminator, optimizer, fake_data, fake_labels, train_CGAN):
     N = fake_data.size(0)
 
     # Reset gradients
     optimizer.zero_grad()
 
-    prediction = Discriminator(fake_data, fake_labels)
+    if train_CGAN:
+        prediction = Discriminator(fake_data, fake_labels)
+    else:
+        prediction = Discriminator(fake_data)
 
     # Calculate error and backpropogate
     error = loss(prediction, ones_target(N, noisy=True))
@@ -164,6 +159,7 @@ if __name__ == "__main__":
     parser.add_argument('--xfile', type=str, nargs='?')
     parser.add_argument('--test', dest='feature', action='store_true')
     parser.add_argument('--gpu', dest='cuda', action='store_true')
+    parser.add_argument('--cgan', dest='cgan', action='store_true')
     options = parser.parse_args()
 
     # Load Data
@@ -188,10 +184,14 @@ if __name__ == "__main__":
     num_batches = len(data_loader)
 
     # Initialize discriminator and generator and initialize weights
-    Discriminator = CGAN_DiscriminatorNet(image_size, num_channels, num_labels)
-    Generator = CGAN_GeneratorNet(image_size, num_channels, num_labels, latent_vector_size)
-    Generator.apply(weights_init)
-    Discriminator.apply(weights_init)
+    if options.cgan:
+        Discriminator = CGAN_DiscriminatorNet(image_size, num_channels, num_labels)
+        Generator = CGAN_GeneratorNet(image_size, num_channels, num_labels, latent_vector_size)
+    else:
+        Discriminator = GAN_DiscriminatorNet(image_size, num_channels)
+        Generator = GAN_GeneratorNet(image_size, num_channels, latent_vector_size)
+        Generator.apply(weights_init)
+        Discriminator.apply(weights_init)
 
     d_optimizer = optim.Adam(Discriminator.parameters(), lr=lr_d, betas=(beta1, 0.999))
     g_optimizer = optim.Adam(Generator.parameters(), lr=lr_g, betas=(beta1, 0.999))
@@ -208,7 +208,6 @@ if __name__ == "__main__":
     noise to see how our training process is developing
     """
     num_test_samples = 16
-    test_noise = noise(num_test_samples)
     fixed_noise = torch.randn(num_test_samples, latent_vector_size, 1, 1)
     fixed_label_1 = torch.FloatTensor(num_test_samples, 1).random_(0, 2)
     fixed_label_2 = torch.FloatTensor(num_test_samples, 1).random_(0, 33)
@@ -233,30 +232,34 @@ if __name__ == "__main__":
                     labels = labels.cuda()
 
                 # 1. Train Discriminator
-                #real_data = Variable(images_to_vectors(real_batch, vector_size))
                 real_data = real_batch.float()
                 labels = labels.float()
 
                 # Generate fake data and detach
                 # (so gradients are not calculated for generator)
+                # Even if not using a CGAN, still create the fake labels so that
+                #  we can pass things around without error
                 gen_noise = torch.randn(N, 100, 1, 1)
                 fake_label_1 = torch.FloatTensor(N, 1).random_(0, 2)
                 fake_label_2 = torch.FloatTensor(N, 1).random_(0, 33)
                 fake_labels = torch.cat([fake_label_1, fake_label_2], 1)
-
-                fake_data = Generator(gen_noise, fake_labels).detach()
+                if options.cgan:
+                    fake_data = Generator(gen_noise, fake_labels).detach()
+                else:
+                    fake_data = Generator(gen_noise).detach()
 
                 # Train Discrimiator
                 d_error, d_pred_real, d_pred_fake = \
-                    train_discriminator(Discriminator, d_optimizer, real_data, labels, fake_data, fake_labels)
-
+                        train_discriminator(Discriminator, d_optimizer, real_data, labels, fake_data, fake_labels, options.cgan)
 
                 # 2. Train Generator
-                #fake_data = generator(noise(N))
-                fake_data = Generator(gen_noise, fake_labels)
+                if options.cgan:
+                    fake_data = Generator(gen_noise, fake_labels)
+                else:
+                    fake_data = Generator(gen_noise)
 
                 # Train Generator
-                g_error = train_generator(Discriminator, g_optimizer, fake_data, fake_labels)
+                g_error = train_generator(Discriminator, g_optimizer, fake_data, fake_labels, options.cgan)
 
 
                 # 3. Log Batch Error
@@ -268,7 +271,10 @@ if __name__ == "__main__":
 
                 # 4. Display Progress periodically
                 if (n_batch) % 10 == 0:
-                    test_images = Generator(fixed_noise, fixed_labels)
+                    if options.cgan:
+                        test_images = Generator(fixed_noise, fixed_labels)
+                    else:
+                        test_images = Generator(fixed_noise)
                     test_images = test_images.data
 
                     logger.log_images(
