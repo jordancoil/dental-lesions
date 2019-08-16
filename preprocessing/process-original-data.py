@@ -24,7 +24,7 @@ from PIL import Image
 
 class ImageProcessor:
 
-    def __init__(self, test_run, process_images, output_folder, input_folder='all_images_cropped_src'):
+    def __init__(self, test_run, process_images, output_folder, input_folder):
         self.dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../lesion_images')
         self.dst_dir= os.path.join(self.dir_path, output_folder)
         print("Image destination directory: " + self.dst_dir)
@@ -83,17 +83,17 @@ class ImageProcessor:
         self.test_run = test_run
 
     def process_all_images(self):
-        for filename in self.filenames:
-            self.process_image(filename)
+        for file_id, filename in enumerate(self.filenames):
+            self.process_image(filename, file_id)
 
-    def process_image(self, filename):
+    def process_image(self, filename, file_id):
         print("Processing: " + filename)
 
         # First split into list by comma
         # [lname, fname, teethnum, desc1, ..., descn, canalnum, month, day, year, sequencenum]
         params = filename.split(',')
 
-        if re.search("jpg", params[-1]) and len(params) >= 6:
+        if re.search("(?:jpg|JPG|JPEG)", params[-1]) and len(params) >= 6:
             # We only want to process our images, not files lie .DS_STORE for eg.
             # There are some images with not all the data, so ignore anything less tha 6 params
 
@@ -103,7 +103,8 @@ class ImageProcessor:
             print('Current Params: ' + str(params))
 
             # Extract ID and and lesion binary from last param
-            params[-1] = params[-1].split('.jpg')[0] # Remove ".jpg" from the last param
+            jpeg_term = re.search("(?:jpg|JPG|JPEG)", params[-1])[0]
+            params[-1] = params[-1].split('.'+jpeg_term)[0] # Remove ".jpg" from the last param
             last_param = params[-1].split('-')
             image_id = last_param[1] # Extract Image Id
             lesion = int(last_param[2]) # Extract lesion binary value
@@ -115,7 +116,7 @@ class ImageProcessor:
             print('Sequence Number: ' + sequenceNum)
             params = params[:-1]
 
-            teethNumbers = self.tooth_num_map[params[0].split('-')[0]]
+            teethNumbers = self.tooth_num_map[params[0].split('-')[0][:2]]
             params = params[1:]
 
             # Extract date
@@ -150,6 +151,7 @@ class ImageProcessor:
             img = Image.open(os.path.join(self.all_images_path, filename))
             rotated = [img, img.rotate(90), img.rotate(180), img.rotate(270)]
             for index, image_to_save in enumerate(rotated):
+                image_id = str(file_id) # overwrite old image id with new iterative id
                 new_file_id = image_id + "-" + str(index)
                 new_filename = new_file_id + ".jpg"
 
@@ -181,6 +183,7 @@ if __name__ == '__main__':
     parser.add_argument('--process-images', dest='process_images', action='store_true')
     parser.add_argument('--csv-name', type=str, nargs='?')
     parser.add_argument('--output-dir', type=str, nargs='?')
+    parser.add_argument('--input-dir', type=str, nargs='?')
     options = parser.parse_args()
 
     if options.process_images and not options.output_dir:
@@ -194,9 +197,15 @@ if __name__ == '__main__':
     else:
         csv_name = str(datetime.now()) + '_lesions.csv'
 
-    process_images = options.process_images
+    if options.input_dir:
+        input_dir = options.input_dir
+    else:
+        input_dir = '1_images-first-set/all_images_cropped_src/'
 
-    image_processor = ImageProcessor(False, process_images, output_dir)
+    process_images = options.process_images
+    output_dir = options.output_dir
+
+    image_processor = ImageProcessor(False, process_images, output_dir, input_dir)
     image_processor.process_all_images()
 
     dataFrame = pd.DataFrame(data=image_processor.data)

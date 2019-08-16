@@ -45,8 +45,10 @@ def lesion_data():
     ])
     #df = pd.read_csv("./data_csvs/cGAN_data.csv")
     #folder = "./lesion_images/all_images_processed_3/"
-    df = pd.read_csv("./data_csvs/cGAN_data_subset_1.csv")
-    folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
+    #df = pd.read_csv("./data_csvs/cGAN_data_subset_1.csv")
+    #folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
+    df = pd.read_csv("./data_csvs/full_dataset.csv")
+    folder = "./lesion_images/0_images-full-dataset/cropped-64x64/rotation/"
     return LesionDatasetCGAN(df, folder, transform=custom_transforms)
 
 """
