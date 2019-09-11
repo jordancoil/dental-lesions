@@ -14,4 +14,4 @@ dataset/*
 *.pth
 *.pt
 runs/*
-
+**/__pycache__/*
