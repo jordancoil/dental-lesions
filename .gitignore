@@ -7,4 +7,11 @@ lesionFileNotes.txt
 **/*.ipynb_checkpoints/
 */.ipynb_checkpoints/*
 */.ipynb_checkpoints/*.ipynb
+*.swo
+data/*
+data_csvs/*
+dataset/*
+*.pth
+*.pt
+runs/*
 
