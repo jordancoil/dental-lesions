@@ -26,7 +26,7 @@ class CustomResize(object):
         if isinstance(output_size, int):
             self.output_size = (output_size, output_size)
         else:
-            assert len(output_size) == 2
+            assert len(output_size) == 3
             self.output_size = output_size
 
     def __call__(self, image):
@@ -40,8 +40,8 @@ class CustomGrayscale(object):
 
 def lesion_data():
     custom_transforms = transforms.Compose([
-        # CustomGrayscale(),
-        CustomResize((64,64))
+        CustomGrayscale(),
+        CustomResize((64,64,1))
     ])
     #df = pd.read_csv("./data_csvs/cGAN_data.csv")
     #folder = "./lesion_images/all_images_processed_3/"

@@ -16,10 +16,12 @@ class DenseNetCNN(nn.Module):
         out_features = 32 * 53 * 53
         self.densenet.classifier = nn.Linear(in_features, out_features)
 
+        self.dropout = nn.Dropout(0.2)
         self.fc1 = nn.Linear(out_features, 256)
         self.fc2 = nn.Linear(256, 84)
         self.fc3 = nn.Linear(84, num_classes)
-        self.out = nn.Sigmoid()
+        # self.out = nn.Sigmoid()
+        self.out = nn.LogSoftmax(dim=1)
 
         self.out_features = out_features
 
@@ -27,7 +29,7 @@ class DenseNetCNN(nn.Module):
         x = self.densenet(x)
         x = x.view(-1, self.out_features)
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = self.dropout(F.relu(self.fc2(x)))
         x = self.out(self.fc3(x))
 
         return x

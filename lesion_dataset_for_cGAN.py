@@ -37,7 +37,7 @@ class LesionDatasetCGAN(Dataset):
         image = io.imread(self.root_dir + image_id + '.jpg')
 
         # Greyscale reshape
-        image = image.reshape((image.shape[0], image.shape[1], 1))
+        # image = image.reshape((image.shape[0], image.shape[1], 1))
 
         if self.transform:
             image = self.transform(image)

@@ -29,13 +29,19 @@ else:
 n_classes = 1 # Binary Classification
 n_epochs = 20
 batch_size = 4
-learning_rate = 0.0001
+learning_rate = 0.003
 
 model = DenseNetCNN(n_classes)
 model.cuda()
 
-criterion = BCELoss()
-optimizer = Adam(model.parameters(), lr=learning_rate)
+# Loss / Optim
+# Attempt 1
+# criterion = BCELoss()
+# optimizer = Adam(model.parameters(), lr=learning_rate)
+
+# Attempt 2
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 
 
 # Load Training Data
@@ -103,7 +109,8 @@ for epoch in range(1, n_epochs + 1):
             inputs, labels = inputs.cuda(), labels.cuda()
 
             outputs = model(inputs.float())
-            loss = criterion(outputs, labels.float())
+            loss = criterion(outputs, torch.max(labels, 1)[1]) # For CrossEntropyLoss
+            # loss = criterion(outputs, labels.float()) # For BCELoss
 
             if phase == 'train':
                 optimizer.zero_grad()
