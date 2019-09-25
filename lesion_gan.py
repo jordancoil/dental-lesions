@@ -38,7 +38,7 @@ class CustomGrayscale(object):
     def __call__(self, image):
         return rgb2gray(image)
 
-def lesion_data():
+def lesion_data(labels):
     custom_transforms = transforms.Compose([
         CustomGrayscale(),
         CustomResize((64,64,1))
@@ -49,7 +49,7 @@ def lesion_data():
     #folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
     df = pd.read_csv("./data_csvs/full_dataset.csv")
     folder = "./lesion_images/0_images-full-dataset/cropped-64x64/rotation/"
-    return LesionDatasetCGAN(df, folder, transform=custom_transforms)
+    return LesionDatasetCGAN(df, folder, transform=custom_transforms, labels=labels)
 
 """
 Real-images targets are always ones, and fake-images targets
@@ -162,10 +162,11 @@ if __name__ == "__main__":
     parser.add_argument('--test', dest='feature', action='store_true')
     parser.add_argument('--gpu', dest='cuda', action='store_true')
     parser.add_argument('--cgan', dest='cgan', action='store_true')
+    parser.add_argument('--unlabeled', dest='labels', action='store_true')
     options = parser.parse_args()
 
     # Load Data
-    data = lesion_data()
+    data = lesion_data(options.labels)
     image_size = (224, 224)
     vector_size = image_size[0] * image_size[1]
 

@@ -11,7 +11,7 @@ class LesionDataset(Dataset):
     Teeth Lesion Dataset.
     """
 
-    def __init__(self, data_frame, root_dir, transform=None):
+    def __init__(self, data_frame, root_dir, transform=None, labels=True):
         """    
         Args:
             data_frame (): 
@@ -21,6 +21,7 @@ class LesionDataset(Dataset):
         self.lesions_df = data_frame
         self.root_dir = root_dir
         self.transform = transform
+        self.labels = labels
 
     def __len__(self):
         return len(self.lesions_df)
@@ -46,8 +47,11 @@ class LesionDataset(Dataset):
         #                                  std=[0.229, 0.224, 0.225])
         # image = normalize(image.float())
 
-        label = self.lesions_df.iloc[idx].lesion
-        label = label.astype('float')
-        label = torch.from_numpy(np.array([label]))
+        if labels:
+            # In our GAN implementation we wish to utilize images 
+            # that are yet to be labeled.
+            label = self.lesions_df.iloc[idx].lesion
+            label = label.astype('float')
+            label = torch.from_numpy(np.array([label]))
 
         return image, label
