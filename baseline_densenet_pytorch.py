@@ -10,19 +10,80 @@ import pandas as pd
 from lesion_dataset import LesionDataset
 from module_densenet_pytorch import DenseNetCNN
 
+import doctest
+
 import warnings
 
+'''
+HyperParams is an object containing
+ - n_classes     Int (The number of classes being classified)
+ - n_epochs      Int (The number of epochs during training)
+ - batch_size    Int (The number of images in each batch)
+ - learning_rate Num (The learning rate used by the optimizer)
+interp. hyper parameters used by machine learning model during training
+
+Example:
+params = {
+    n_classes: 1,
+    n_epochs:  20,
+    batch_size: 4,
+    learning_rate = 0.003,
+}
+'''
+def fn_for_hyper_params(hyperparams):
+    ... hyperparams.n_classes
+    ... hyperparams.n_epochs
+    ... hyperparams.batch_size
+    ... hyperparams.learning_rate
+
+
+# =========
+# Constants
+
+hyperparams = {
+    n_classes     = 1, # Binary Classification
+    n_epochs      = 20,
+    batch_size    = 4,
+    learning_rate = 0.003
+}
+
+
+# =========
+# Functions
+
+def setup():
+    """
+    Call various world setup functions
+    """
+    warnings.filterwarnings("ignore", category=UserWarning)
+
+    # Use GPU
+    if not "GeForce" in torch.cuda.get_device_name(
+            torch.cuda.current_device()):
+        print("Stopped. Not using GPU.")
+        exit()
+    else:
+        print("Using: ", torch.cuda.get_device_name(
+            torch.cuda.current_device()))
+
+'''
+=============
+Main Function
+
+Call with:
+ - ...
+'''
+
+def main():
+    setup()
+
+if __name__ == "__main__":
+    main()
 
 # Ignore warnings for now
-warnings.filterwarnings("ignore", category=UserWarning)
 
 
 # Make sure we are using GPU
-if not "GeForce" in torch.cuda.get_device_name(torch.cuda.current_device()):
-    print("Stopped. Not using GPU.")
-    exit()
-else:
-    print("Using: ", torch.cuda.get_device_name(torch.cuda.current_device()))
 
 
 # Training Parameters
