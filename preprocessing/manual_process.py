@@ -21,19 +21,52 @@ Steps:
 import cv2
 import os
 
-def tests():
-    test_image = cv2.imread("tests/test_images/test1.jpg")
-    cv2.rectangle(test_image, (10, 100), (50, 500), (0, 255, 0), 2)
-    cv2.imshow("image", test_image)
-    cv2.waitKey(0)
+# =========
+# Constants
 
-    crop_image = test_image.copy()[100:500, 10:50]
-    cv2.imshow("image", crop_image)
-    cv2.waitKey(0)
+test_image_path = "tests/test_images/test1.jpg"
+test_image_crop_path = "tests/test_images/test1_crop.jpg"
+
+def tests():
+    test_image = cv2.imread(test_image_path)
+
+    # Test assert_images_equal()
+    assert assert_images_equal(test_image, test_image) == True
+
+    # Test crop_image()
+
+    duplicate_cropped = test_image.copy()[100:500, 10:50]
+    cropped_test_image = crop_image(test_image, [(10, 100), (50, 500)])
+    try:
+        assert_images_equal(cropped_test_image, duplicate_cropped)
+    except Exception as e:
+        print("Crop failed")
+        raise e
+
+    # TODO: Write tests for draw_rectangle()
+    
+
+
+
+    #assert cropped_test_image == test_image_crop
     # tests for crop_image()
     #    assert 
 
     print("Tests Passed")
+
+
+
+def assert_images_equal(original, duplicate):
+    assert original.shape == duplicate.shape, "The Images do not have the same shape"
+
+    difference = cv2.subtract(original, duplicate)
+    b, g, r = cv2.split(difference)
+    assert cv2.countNonZero(b) == 0, "The Images are not equal"
+    assert cv2.countNonZero(g) == 0, "The Images are not equal"
+    assert cv2.countNonZero(r) == 0, "The Images are not equal"
+
+    return True
+
 
 def crop_image(image, crop_dim):
     """
@@ -42,7 +75,23 @@ def crop_image(image, crop_dim):
     takes an image and a coordinates as input and returns the image bounded 
     inside those coordinates
     """
-    return image
+
+    return image[crop_dim[0][1]:crop_dim[1][1], crop_dim[0][0]:crop_dim[1][0]]
+
+
+def draw_rectangle(image, start_x, start_y, end_x, end_y):
+    """
+    Image, Number, Number, Number, Number -> Image
+
+    takes an image and some coordinates and draws a green rectangle around 
+    those coordinates in OpenCV
+    """
+
+    return cv2.rectangle(test_iage, (start_x, start_y), # Start Point
+                                    (end_x, end_y),     # End Point
+                                    (0, 255, 0),        # Color of Rectangle
+                                    2)                  # Thickness
+
 
 
 if __name__ == "__main__":
