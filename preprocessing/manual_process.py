@@ -25,7 +25,6 @@ import os
 # Constants
 
 test_image_path = "tests/test_images/test1.jpg"
-test_image_crop_path = "tests/test_images/test1_crop.jpg"
 
 def tests():
     test_image = cv2.imread(test_image_path)
@@ -43,14 +42,14 @@ def tests():
         print("Crop failed")
         raise e
 
-    # TODO: Write tests for draw_rectangle()
-    
-
-
-
-    #assert cropped_test_image == test_image_crop
-    # tests for crop_image()
-    #    assert 
+    try:
+        image_with_rectangle = cv2.rectangle(test_image, (10, 100),
+                (50, 500), (0, 255, 0), 2)
+        image_from_function = draw_rectangle(test_image, 10, 100, 50, 500)
+        assert assert_images_equal(image_with_rectangle, image_from_function) == True
+    except Exception as e:
+        print("Draw rectangle failed")
+        raise e
 
     print("Tests Passed")
 
@@ -87,7 +86,7 @@ def draw_rectangle(image, start_x, start_y, end_x, end_y):
     those coordinates in OpenCV
     """
 
-    return cv2.rectangle(test_iage, (start_x, start_y), # Start Point
+    return cv2.rectangle(image, (start_x, start_y), # Start Point
                                     (end_x, end_y),     # End Point
                                     (0, 255, 0),        # Color of Rectangle
                                     2)                  # Thickness
