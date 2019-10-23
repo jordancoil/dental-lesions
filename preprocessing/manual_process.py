@@ -24,6 +24,9 @@ import os
 # =========
 # Constants
 
+# Global Var(s) used by cropping functions.
+rect = []
+
 test_image_path = "tests/test_images/test1.jpg"
 
 def tests():
@@ -71,8 +74,8 @@ def crop_image(image, crop_dim):
     """
     Image [(Number, Number), (Number, Number)] -> Image
     
-    takes an image and a coordinates as input and returns the image bounded 
-    inside those coordinates
+    takes an image and a coordinates [(start_x, start_y), (end_x, end_y)] 
+    as input and returns the image bounded inside those coordinates
     """
 
     return image[crop_dim[0][1]:crop_dim[1][1], crop_dim[0][0]:crop_dim[1][0]]
@@ -82,7 +85,7 @@ def draw_rectangle(image, start_x, start_y, end_x, end_y):
     """
     Image, Number, Number, Number, Number -> Image
 
-    takes an image and some coordinates and draws a green rectangle around 
+    takes an Open CV image and some coordinates and draws a green rectangle around 
     those coordinates in OpenCV
     """
 
@@ -91,7 +94,56 @@ def draw_rectangle(image, start_x, start_y, end_x, end_y):
                                     (0, 255, 0),        # Color of Rectangle
                                     2)                  # Thickness
 
+    
+    
+def open_image_and_start_crop(image):
+    """
+    Image -> Image
+
+    takes an Open CV image and displays it using Open CV. Waits for the press
+    of the escape key to exit or the s key to save and exit.
+    """
+    cv2.namedWindow("image")
+    cv2.setMouseCallback("image", change_crop)
+
+    cv2.imshow('image', image)
+    k = cv2.waitKey(0)
+    if k == 27: # wait for ESC key to exit
+        cv2.destroyAllWindows()
+    elif k == ord('s'):
+        crop_dim = get_crop_coordinates(image, rect) # global rect
+        cropped_image = crop_image(image, crop_dim)
+
+
+def get_crop_coordinates(image, crop_rect):
+    """
+    Image, [(Number, Number), (Number, Number)] ->
+        [(Number. Number), (Number, Number)]
+
+    Takes an Image and dimensions of a rectangle and returns those dimensions 
+    coordinates for a crop function
+    """
+    # TODO
+    return [(0, 0) (0, 0)]
+
+
+def change_crop(event, x, y, flags, params):
+    """
+    Int, Int, Int, Int, (UserData) -> Boolean
+
+    An Open CV mouse event function, where the ending position of the mouse
+    should be the center of the new crop. If the end position of the mouse
+    would put the crop off the screen, set crop to nearest edge. Returns
+    True if everything works.
+    """
+    # TODO
+    global rect
+
+    return True
 
 
 if __name__ == "__main__":
+
     tests()
+    test_image = cv2.imread(test_image_path)
+    open_image_and_start_crop(test_image)
