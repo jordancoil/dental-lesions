@@ -172,13 +172,45 @@ def get_crop_coords(image, x, y):
     rectangle off the screen, set the edge of the rectangle to nearest edge.
 
     """
+    start_x, start_y, end_x, end_y = check_crop_out_of_bounds(image, x, y)
+    
+    return [(start_x, start_y), (end_x, end_y)]
+
+
+def check_crop_out_of_bounds(image, x, y):
+    """
+    Image, Number, Number, (Number, Number) ->
+        Number, Number, Number, Number
+    """
     # TODO: check if crop coords are out of bounds
     global crop_dim
 
-    cols, rows = crop_dim
-    
-    return [(x - int(0.5*cols), y - int(0.5*rows)),
-            (x + int(0.5*cols), y + int(0.5*rows))]
+    crop_w, crop_h = crop_dim
+    start_x = x - int(0.5*crop_w)
+    start_y = y - int(0.5*crop_h)
+    end_x   = x + int(0.5*crop_w)
+    end_y   = y + int(0.5*crop_h)
+
+    if start_x < 0:
+        #move start_x and end_x back to image
+        end_x = end_x - start_x
+        start_x = 0
+    if start_y < 0:
+        #move start_y and end_y back to image
+        end_y = end_y - start_y
+        start_y = 0
+    if end_x > image.shape[0]:
+        #move start_x and end_x back to image
+        diff_x = end_x - image.shape[0]
+        start_x = start_x - diff_x
+        end_x = image.shape[0]
+    if end_y > image.shape[1]:
+        #move start_y and end_y back to image
+        diff_y = end_y - image.shape[1]
+        start_y = start_y - diff_y
+        end_y = image.shape[1]
+
+    return start_x, start_y, end_x, end_y
 
 
 def store_rect(new_rect):
