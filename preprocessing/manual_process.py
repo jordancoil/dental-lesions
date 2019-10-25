@@ -58,6 +58,12 @@ def tests():
         print("Draw rectangle failed")
         raise e
 
+    # test init_global_crop_dim()
+    print(test_image.shape)
+    test_width, test_height = test_image.shape[:2]
+    test_dim = min(test_width, test_height)
+    assert (test_dim, test_dim) == init_global_crop_dim(test_image, save=False)
+
     print("Tests Passed")
 
 
@@ -108,6 +114,11 @@ def open_image_and_start_crop(image):
     """
     global rect, curr_img, curr_img_copy
 
+    #TODO: move this to the function that opens the directory of images
+    #   the idea is that the crop size will be set to a square of the min
+    #   of the smallest images width or height 
+    init_global_crop_dim(image)
+
     cv2.namedWindow("image")
     cv2.setMouseCallback("image", move_rectangle)
     curr_img = image
@@ -132,6 +143,26 @@ def open_image_and_start_crop(image):
     return image
 
 
+def init_global_crop_dim(image, save=True):
+    """
+    Image, (Boolean) -> (Number, Number)
+
+    takes an image and sets the global crop width and height to to the min of 
+    the image's width or it's height, returns a tuple of (width, heigt)
+
+    Optional save paramter for testing purposes.
+    """
+    global crop_dim
+
+    width, height = image.shape[:2]
+    dim = min(width, height)
+
+    if save:
+        crop_dim = (dim, dim)
+
+    return (dim, dim)
+
+
 def get_crop_coords(image, x, y):
     """
     Image, Number, Number -> [(Number. Number), (Number, Number)]
@@ -142,7 +173,9 @@ def get_crop_coords(image, x, y):
 
     """
     # TODO: check if crop coords are out of bounds
-    cols, rows = image.shape[:2]
+    global crop_dim
+
+    cols, rows = crop_dim
     
     return [(x - int(0.5*cols), y - int(0.5*rows)),
             (x + int(0.5*cols), y + int(0.5*rows))]
