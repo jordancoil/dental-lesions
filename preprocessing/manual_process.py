@@ -25,7 +25,11 @@ import os
 # Constants
 
 # Global Var(s) used by cropping functions.
-rect = []
+rect = [(0,0), (0,0)] # [(start_x, start_y), (end_x, end_y)]
+crop_size = (100, 100)
+move_rect = False
+curr_img = None
+curr_img_copy = None
 
 test_image_path = "tests/test_images/test1.jpg"
 
@@ -48,7 +52,7 @@ def tests():
     try:
         image_with_rectangle = cv2.rectangle(test_image, (10, 100),
                 (50, 500), (0, 255, 0), 2)
-        image_from_function = draw_rectangle(test_image, 10, 100, 50, 500)
+        image_from_function = draw_rectangle(test_image, [(10, 100), (50, 500)])
         assert assert_images_equal(image_with_rectangle, image_from_function) == True
     except Exception as e:
         print("Draw rectangle failed")
@@ -81,18 +85,17 @@ def crop_image(image, crop_dim):
     return image[crop_dim[0][1]:crop_dim[1][1], crop_dim[0][0]:crop_dim[1][0]]
 
 
-def draw_rectangle(image, start_x, start_y, end_x, end_y):
+def draw_rectangle(image, rect):
     """
-    Image, Number, Number, Number, Number -> Image
+    Image, [(Number, Number), (Number, Number)] -> Image
 
     takes an Open CV image and some coordinates and draws a green rectangle around 
     those coordinates in OpenCV
     """
-
-    return cv2.rectangle(image, (start_x, start_y), # Start Point
-                                    (end_x, end_y),     # End Point
-                                    (0, 255, 0),        # Color of Rectangle
-                                    2)                  # Thickness
+    return cv2.rectangle(image, rect[0],     # Start Point
+                                rect[1],     # End Point
+                                (0, 255, 0), # Color of Rectangle
+                                2)           # Thickness
 
     
     
@@ -103,43 +106,85 @@ def open_image_and_start_crop(image):
     takes an Open CV image and displays it using Open CV. Waits for the press
     of the escape key to exit or the s key to save and exit.
     """
+    global rect, curr_img, curr_img_copy
+
     cv2.namedWindow("image")
-    cv2.setMouseCallback("image", change_crop)
+    cv2.setMouseCallback("image", move_rectangle)
+    curr_img = image
+    curr_img_copy = curr_img.copy()
+    cv2.startWindowThread()
+    while True:
+        cv2.imshow('image', curr_img)
+        # check every 100ms to see if window mannualy closed
+        k = cv2.waitKey(100) 
+        if k == 27: 
+            # Esc key is pressed
+            cv2.destroyAllWindows()
+            break
+        elif k == ord('s'):
+            image = crop_image(image, rect)
+            break
+        if cv2.getWindowProperty("image", cv2.WND_PROP_VISIBLE) < 1:
+            # Image is closed manually
+            break
+    cv2.destroyAllWindows()
 
-    cv2.imshow('image', image)
-    k = cv2.waitKey(0)
-    if k == 27: # wait for ESC key to exit
-        cv2.destroyAllWindows()
-    elif k == ord('s'):
-        crop_dim = get_crop_coordinates(image, rect) # global rect
-        cropped_image = crop_image(image, crop_dim)
+    return image
 
 
-def get_crop_coordinates(image, crop_rect):
+def get_crop_coords(image, x, y):
     """
-    Image, [(Number, Number), (Number, Number)] ->
-        [(Number. Number), (Number, Number)]
+    Image, Number, Number -> [(Number. Number), (Number, Number)]
 
     Takes an Image and dimensions of a rectangle and returns those dimensions 
-    coordinates for a crop function
+    coordinates for a crop function. If the x and y coords would put the 
+    rectangle off the screen, set the edge of the rectangle to nearest edge.
+
     """
-    # TODO
-    return [(0, 0) (0, 0)]
+    # TODO: check if crop coords are out of bounds
+    cols, rows = image.shape[:2]
+    
+    return [(x - int(0.5*cols), y - int(0.5*rows)),
+            (x + int(0.5*cols), y + int(0.5*rows))]
 
 
-def change_crop(event, x, y, flags, params):
+def store_rect(new_rect):
     """
-    Int, Int, Int, Int, (UserData) -> Boolean
+    [(Number, Number), (Number, Number)] -> 
+        [(Number, Number), (Number, Number)] 
 
-    An Open CV mouse event function, where the ending position of the mouse
-    should be the center of the new crop. If the end position of the mouse
-    would put the crop off the screen, set crop to nearest edge. Returns
-    True if everything works.
+    Takes a rect (coordinates) and stores it in the global rect variable to be 
+    used by open functions.
     """
-    # TODO
     global rect
+    rect = new_rect
+    return rect
 
-    return True
+def move_rectangle(event, x, y, flags, params):
+    """
+    Int, Int, Int, Int, (UserData) -> null
+
+    An Open CV mouse event function, drawing an rectangle indicating an area
+    to be cropped. The ending position of a mouse after a click should be the 
+    center of a new rectangle.    
+    """
+    global move_rect, crop_size, curr_img, curr_img_copy
+    # TODO: use crop_size
+
+    if event == cv2.EVENT_LBUTTONDOWN:
+        move_rect = True
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if move_rect:
+            # re-initialize the image, to remove old rectangle
+            curr_img = curr_img_copy.copy()
+            rect = store_rect(get_crop_coords(curr_img, x, y))
+            curr_img = draw_rectangle(curr_img, rect)
+    elif event == cv2.EVENT_LBUTTONUP:
+        move_rect = False
+        # re-initialize the image, to remove old rectangle
+        curr_img = curr_img_copy.copy()
+        rect = store_rect(get_crop_coords(curr_img, x, y))
+        curr_img = draw_rectangle(curr_img, rect)
 
 
 if __name__ == "__main__":
