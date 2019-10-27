@@ -26,7 +26,7 @@ import os
 
 # Global Var(s) used by cropping functions.
 rect = [(0,0), (0,0)] # [(start_x, start_y), (end_x, end_y)]
-crop_size = (100, 100)
+crop_dim = (100, 100)
 move_rect = False
 curr_img = None
 curr_img_copy = None
@@ -59,10 +59,35 @@ def tests():
         raise e
 
     # test init_global_crop_dim()
-    print(test_image.shape)
-    test_width, test_height = test_image.shape[:2]
-    test_dim = min(test_width, test_height)
-    assert (test_dim, test_dim) == init_global_crop_dim(test_image, save=False)
+    try:
+        test_height, test_width = test_image.shape[:2]
+        test_dim = min(test_width, test_height)
+        assert (test_dim, test_dim) == init_global_crop_dim(test_image, save=False)
+    except exception as e:
+        print("Init crop dim failed")
+        raise e
+
+    # test check_crop_out_of_bounds()
+    try:
+        global crop_dim
+        start_x, start_y, end_x, end_y = check_crop_out_of_bounds(test_image, 
+                int(0.5*crop_dim[0]) - 1, int(0.5*crop_dim[1]) - 1)
+        assert start_x == 0
+        assert start_y == 0
+        assert end_x   == crop_dim[0]
+        assert end_y   == crop_dim[1]
+
+        start_x, start_y, end_x, end_y = check_crop_out_of_bounds(test_image, 
+                test_image.shape[1] - int(0.5*crop_dim[0]) + 1, 
+                test_image.shape[0] - int(0.5*crop_dim[1]) + 1)
+        assert start_x == test_image.shape[1] - crop_dim[1]
+        assert start_y == test_image.shape[0] - crop_dim[0]
+        assert end_x   == test_image.shape[1]
+        assert end_y   == test_image.shape[0]
+    except Exception as e:
+        print("Crop out of bounds check function failed")
+        raise e
+
 
     print("Tests Passed")
 
@@ -154,7 +179,7 @@ def init_global_crop_dim(image, save=True):
     """
     global crop_dim
 
-    width, height = image.shape[:2]
+    height, width = image.shape[:2]
     dim = min(width, height)
 
     if save:
@@ -185,6 +210,8 @@ def check_crop_out_of_bounds(image, x, y):
     # TODO: check if crop coords are out of bounds
     global crop_dim
 
+    img_h, img_w = image.shape[:2]
+    
     crop_w, crop_h = crop_dim
     start_x = x - int(0.5*crop_w)
     start_y = y - int(0.5*crop_h)
@@ -192,23 +219,17 @@ def check_crop_out_of_bounds(image, x, y):
     end_y   = y + int(0.5*crop_h)
 
     if start_x < 0:
-        #move start_x and end_x back to image
-        end_x = end_x - start_x
         start_x = 0
+        end_x = crop_w
     if start_y < 0:
-        #move start_y and end_y back to image
-        end_y = end_y - start_y
         start_y = 0
-    if end_x > image.shape[0]:
-        #move start_x and end_x back to image
-        diff_x = end_x - image.shape[0]
-        start_x = start_x - diff_x
-        end_x = image.shape[0]
-    if end_y > image.shape[1]:
-        #move start_y and end_y back to image
-        diff_y = end_y - image.shape[1]
-        start_y = start_y - diff_y
-        end_y = image.shape[1]
+        end_y = crop_h
+    if end_x > img_w:
+        end_x = img_w
+        start_x = img_w - crop_w
+    if end_y > img_h:
+        end_y = img_h
+        start_y = img_h - crop_h
 
     return start_x, start_y, end_x, end_y
 
