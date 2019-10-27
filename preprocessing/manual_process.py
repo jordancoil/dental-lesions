@@ -18,6 +18,7 @@ Steps:
     - that image is saved with the crop into a specified folder.
 """
 
+import argparse
 import cv2
 import os
 
@@ -273,8 +274,47 @@ def move_rectangle(event, x, y, flags, params):
         curr_img = draw_rectangle(curr_img, rect)
 
 
+def open_image_directory(dir_path):
+    """
+    String -> Array[Image]
+
+    Given a path string, check all files in directory are images and return 
+    the images contained in the directory as a list
+    """
+    try:
+        check_all_images(dir_path)
+        return os.list_dir(dir_path)
+    except Exception as e
+        print("Input directory contains non-image files")
+        raise e
+
+
+def check_all_images(dir_path):
+    """
+    String -> Boolean
+
+    checks that all the files in a given directory are image files
+    """
+    # TODO
+    return True
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Manually Process Images")
+    parser.add_argument("--input_dir", type=str, nargs="?")
+    parser.add_argument("--output_dir", type=str, nargs="?")
+    options = parser.parse_args()
+    argument_errors = 0
+
+    if not options.input_dir:
+        print("please specify an input directory using '--input_dir'")
+        argument_errors += 1
+    if not options.output_dir:
+        print("please specify an output directory using '--output_dir'")
+        argument_errors += 1
+    if argument_errors > 0:
+        exit()
 
     tests()
     test_image = cv2.imread(test_image_path)
-    open_image_and_start_crop(test_image)
+    new_image = open_image_and_start_crop(test_image)
