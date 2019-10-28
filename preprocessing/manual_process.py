@@ -274,29 +274,50 @@ def move_rectangle(event, x, y, flags, params):
         curr_img = draw_rectangle(curr_img, rect)
 
 
-def open_image_directory(dir_path):
+def get_image_names(dir_path):
     """
-    String -> Array[Image]
+    String -> Array[String]
 
     Given a path string, check all files in directory are images and return 
     the images contained in the directory as a list
     """
-    try:
-        check_all_images(dir_path)
-        return os.list_dir(dir_path)
-    except Exception as e
+    image_list = os.listdir(dir_path)
+    if check_all_images(image_list):
+        return image_list
+    else:
         print("Input directory contains non-image files")
-        raise e
+        raise Exception()
 
 
-def check_all_images(dir_path):
+def check_all_images(image_names):
     """
-    String -> Boolean
+    Array[String] -> Boolean
 
-    checks that all the files in a given directory are image files
+    checks that all the files have image filetype extensions
     """
     # TODO
+    for iname in image_names:
+        if not iname.lower().endswith(('.png', '.jpg', '.jpeg')):
+            return False
     return True
+
+
+def crop_all_images(image_names, input_dir, output_dir):
+    """
+    Array[String], String -> Array[String]
+
+    given a list of image file names and a directory path, open those images
+    and open a manual crop dialog for each one, saving the result of each
+    crop to the output directory. Returns list of new filenames.
+    """
+    for iname in image_names:
+        image = cv2.imread(os.path.join(input_dir, iname))
+        #TODO: make open_image_and_start_crop() return an indication whether
+        #  crop was completed for cancelled
+        new_image = open_image_and_start_crop(image)
+    #TODO: crop and save
+    return image_names
+
 
 
 if __name__ == "__main__":
@@ -316,5 +337,11 @@ if __name__ == "__main__":
         exit()
 
     tests()
-    test_image = cv2.imread(test_image_path)
-    new_image = open_image_and_start_crop(test_image)
+    # testing code
+    # to test use input_dir = tests/test_images/
+    image_names = get_image_names(options.input_dir)
+    cropped_image_names = crop_all_images(image_names, options.input_dir, 
+            options.output_dir)
+
+    # test_image = cv2.imread(test_image_path)
+    # new_image = open_image_and_start_crop(test_image)
