@@ -1,5 +1,6 @@
 import torch
 from torch import nn, optim
+from torch.nn import init
 from torch.autograd import Variable
 from torchvision import transforms, datasets
 
@@ -43,13 +44,23 @@ def lesion_data(labels):
         CustomGrayscale(),
         CustomResize((64,64,1))
     ])
-    #df = pd.read_csv("./data_csvs/cGAN_data.csv")
-    #folder = "./lesion_images/all_images_processed_3/"
-    #df = pd.read_csv("./data_csvs/cGAN_data_subset_1.csv")
-    #folder = "./lesion_images/processed_3_zeros_only/type1/upwards/"
-    df = pd.read_csv("./data_csvs/full_dataset.csv")
-    folder = "./lesion_images/0_images-full-dataset/cropped-64x64/rotation/"
-    return LesionDatasetCGAN(df, folder, transform=custom_transforms, labels=labels)
+
+    valid_datasets =[
+        {
+            'csv': "./data_csvs/cGAN_data.csv",
+            'image_dir': "lesion_images/98_images-first-set-unorganized/all_images_processed_3/"
+        },
+        {
+            'csv': "./data_csvs/cgan_data_subset_1.csv",
+            'image_dir': "lesion_images/98_images-first-set-unnorganized/processed_3_zeros_only/type1/upwards/"
+        },
+    ]
+
+    dset = valid_datasets[0]
+    df = pd.read_csv(dset['csv'])
+    folder = dset['image_dir']
+
+    return LesionDatasetCGAN(df, folder, transform=custom_transforms)
 
 """
 Real-images targets are always ones, and fake-images targets
@@ -139,10 +150,10 @@ def weights_init(model):
     """
     classname = model.__class__.__name__
     if classname.find('Conv') != -1:
-        nn.init.normal_(model.weight.data, 0.0, 0.02)
+        init.normal_(model.weight.data, 0.0, 0.02)
     elif classname.find('BatchNorm') != -1:
-        nn.init.normal_(model.weight.data, 1.0, 0.02)
-        nn.init.constant_(model.bias.data, 0)
+        init.normal_(model.weight.data, 1.0, 0.02)
+        init.constant_(model.bias.data, 0)
 
 def plot_losses(g_losses, d_losses):
     # Plot losses after training
