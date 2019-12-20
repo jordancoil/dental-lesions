@@ -21,6 +21,7 @@ Steps:
 import argparse
 import cv2
 import os
+import sys
 
 # =========
 # Constants
@@ -63,8 +64,8 @@ def tests():
     try:
         test_height, test_width = test_image.shape[:2]
         test_dim = min(test_width, test_height)
-        assert (test_dim, test_dim) == init_global_crop_dim(test_image, save=False)
-    except exception as e:
+        assert (test_dim, test_dim) == init_global_crop_dim(test_dim, save=False)
+    except Exception as e:
         print("Init crop dim failed")
         raise e
 
@@ -140,11 +141,6 @@ def open_image_and_start_crop(image):
     """
     global rect, curr_img, curr_img_copy
 
-    #TODO: move this to the function that opens the directory of images
-    #   the idea is that the crop size will be set to a square of the min
-    #   of the smallest images width or height 
-    init_global_crop_dim(image)
-
     saved = False
 
     cv2.namedWindow("image", cv2.WINDOW_NORMAL)
@@ -173,9 +169,29 @@ def open_image_and_start_crop(image):
     return image, saved
 
 
-def init_global_crop_dim(image, save=True):
+def init_global_crop_dim_from_images(images, input_dir):
     """
-    Image, (Boolean) -> (Number, Number)
+    [listof String] -> (Number, Number)
+
+    takes the paths to all images and finds the minimum crop dimensions
+    """
+
+    minw = sys.maxsize
+    minh = sys.maxsize
+
+    for i in images:
+        image = cv2.imread(os.path.join(input_dir, i))
+        if image.shape[0] < minw:
+            minw = image.shape[0]
+        if image.shape[1] < minh:
+            minh = image.shape[1]
+
+    return init_global_crop_dim(min(minw, minh))
+
+
+def init_global_crop_dim(dim, save=True):
+    """
+    Number, (Boolean) -> (Number, Number)
 
     takes an image and sets the global crop width and height to to the min of 
     the image's width or it's height, returns a tuple of (width, heigt)
@@ -183,9 +199,6 @@ def init_global_crop_dim(image, save=True):
     Optional save paramter for testing purposes.
     """
     global crop_dim
-
-    height, width = image.shape[:2]
-    dim = min(width, height)
 
     if save:
         crop_dim = (dim, dim)
@@ -314,13 +327,13 @@ def crop_all_images(image_names, input_dir, output_dir):
     and open a manual crop dialog for each one, saving the result of each
     crop to the output directory. Returns list of new filenames.
     """
+    init_global_crop_dim_from_images(image_names, input_dir)
     for iname in image_names:
         image = cv2.imread(os.path.join(input_dir, iname))
         #TODO: make open_image_and_start_crop() return an indication whether
         #  crop was completed for cancelled
         new_image, saved = open_image_and_start_crop(image)
         if saved:
-            print("Saving Image: " + str(counter) + ".jpg")
             cv2.imwrite(os.path.join(output_dir, iname), new_image)
     return image_names
 
