@@ -145,6 +145,8 @@ def open_image_and_start_crop(image):
     #   of the smallest images width or height 
     init_global_crop_dim(image)
 
+    saved = False
+
     cv2.namedWindow("image", cv2.WINDOW_NORMAL)
     cv2.resizeWindow("image", 800,800)
     cv2.setMouseCallback("image", move_rectangle)
@@ -161,13 +163,14 @@ def open_image_and_start_crop(image):
             break
         elif k == ord('s'):
             image = crop_image(image, rect)
+            saved = True
             break
         if cv2.getWindowProperty("image", cv2.WND_PROP_VISIBLE) < 1:
             # Image is closed manually
             break
     cv2.destroyAllWindows()
 
-    return image
+    return image, saved
 
 
 def init_global_crop_dim(image, save=True):
@@ -311,15 +314,14 @@ def crop_all_images(image_names, input_dir, output_dir):
     and open a manual crop dialog for each one, saving the result of each
     crop to the output directory. Returns list of new filenames.
     """
-    counter = 0
     for iname in image_names:
         image = cv2.imread(os.path.join(input_dir, iname))
         #TODO: make open_image_and_start_crop() return an indication whether
         #  crop was completed for cancelled
-        new_image = open_image_and_start_crop(image)
-        print("Saving Image: " + str(counter) + ".jpg")
-        cv2.imwrite(os.path.join(output_dir, str(counter) + ".jpg"), new_image)
-        counter += 1
+        new_image, saved = open_image_and_start_crop(image)
+        if saved:
+            print("Saving Image: " + str(counter) + ".jpg")
+            cv2.imwrite(os.path.join(output_dir, iname), new_image)
     return image_names
 
 
